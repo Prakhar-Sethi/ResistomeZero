@@ -1,0 +1,87 @@
+\begin{table*}[t]
+\centering
+\caption{Performance on zero-shot antibiotic resistance prediction (enriched graph + STRING PPI, 5 seeds, mean $\pm$ std). Hard negatives: gene$\times$unseen-antibiotic pairs. Ranking uses filtered MRR (training positives per gene excluded from pool). Random baseline MRR = 0.0043 (1/231). $\dagger$ DrugClass-Heuristic requires no training: score$(g,a)$ = fraction of training ABs sharing $a$'s drug class that $g$ resists; reported over all test pairs (no seed variance). $\ddagger$ DistMult, ComplEx, and TransE are transductive KGE baselines; ComplEx is the top KGE model per BRIDGE \cite{bessadok2026bridge}. $\star$ p-value from Wilcoxon signed-rank test vs.\ random baseline; ``n.s.'' = not significant ($p > 0.05$). Effect size $r = 1 - 2\bar{\rho}/N$.}
+\label{tab:results}
+\begin{tabular}{llccccccc}
+\toprule
+\textbf{Category} & \textbf{Model} & \textbf{AUC} & \textbf{MRR} & \textbf{Hits@1} & \textbf{Hits@10} & \textbf{Mean Rank} & \textbf{$p$-value$^\star$} \\
+\midrule
+Non-learning
+  & DrugClass-Heuristic$^\dagger$
+    & ---
+    & $\mathbf{0.280}$
+    & $0.255$
+    & $0.320$
+    & $70.4$
+    & $< 10^{-60}$ \\
+\midrule
+\multirow{2}{*}{Homogeneous GNN}
+  & GCN
+    & $0.696 \pm 0.056$
+    & $0.015 \pm 0.002$
+    & $0.12\%$
+    & $2.28\%$
+    & $135.2 \pm 5.5$
+    & n.s. \\
+  & GraphSAGE
+    & $0.879 \pm 0.010$
+    & $0.020 \pm 0.004$
+    & $0.17\%$
+    & $1.32\%$
+    & $99.8 \pm 3.1$
+    & mixed$^\star$ \\
+\midrule
+Attention GNN
+  & GAT
+    & $0.754 \pm 0.068$
+    & $0.009 \pm 0.001$
+    & $0.00\%$
+    & $0.00\%$
+    & $140.6 \pm 6.1$
+    & n.s. \\
+\midrule
+\multirow{2}{*}{Relation-aware GNN}
+  & \textbf{R-GCN}
+    & $\mathbf{0.896 \pm 0.016}$
+    & $\mathbf{0.243 \pm 0.078}$
+    & $\mathbf{18.96\%}$
+    & $\mathbf{35.70\%}$
+    & $\mathbf{52.8 \pm 8.0}$
+    & $< 10^{-60}$ \\
+  & HGT
+    & $0.848 \pm 0.015$
+    & $0.007 \pm 0.002$
+    & $0.00\%$
+    & $0.00\%$
+    & $156.4 \pm 19.9$
+    & n.s. \\
+\midrule
+\multirow{3}{*}{KGE Baseline}
+  & DistMult$^\ddagger$
+    & $0.491 \pm 0.030$
+    & $0.009 \pm 0.000$
+    & $0.00\%$
+    & $0.00\%$
+    & $114.0 \pm 1.6$
+    & n.s. \\
+  & ComplEx$^\ddagger$
+    & $0.515 \pm 0.043$
+    & $0.009 \pm 0.000$
+    & $0.00\%$
+    & $0.00\%$
+    & $114.0 \pm 3.3$
+    & n.s. \\
+  & TransE$^\ddagger$
+    & $0.630 \pm 0.010$
+    & $0.013 \pm 0.000$
+    & $0.00\%$
+    & $0.00\%$
+    & $82.3 \pm 2.4$
+    & n.s. \\
+\midrule
+\multicolumn{2}{l}{Random baseline} & --- & 0.0043 & --- & --- & 115.5 & --- \\
+\bottomrule
+\end{tabular}
+\vspace{1mm}
+\footnotesize{$^\star$GraphSAGE is significant in some seeds but not consistently. R-GCN and DrugClass-Heuristic are significant in all seeds ($p < 10^{-60}$). Only models with all-seed significance should be considered reliable. Hits@1 and Hits@10 reported as mean over 5 seeds (std omitted for space; all KGE Hits values are 0.00\% across all seeds).}
+\end{table*}
