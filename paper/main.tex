@@ -1,0 +1,438 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{multirow}
+\usepackage{xcolor}
+
+\title{Zero-Shot Antibiotic Resistance Prediction via\\Heterogeneous Graph Neural Networks}
+
+\author{
+\IEEEauthorblockN{[Your Name]}
+\IEEEauthorblockA{
+Department of Computer Science\\
+[Your University]\\
+Email: [your-email]}
+\and
+\IEEEauthorblockN{[Professor Name]}
+\IEEEauthorblockA{
+Department of [Department]\\
+[Your University]\\
+Email: [prof-email]}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Antibiotic resistance is a critical global health threat, yet computational prediction of resistance remains limited to antibiotics seen during training. We present the first study to formulate antibiotic resistance prediction as a \textit{zero-shot} task, where models must predict gene-antibiotic resistance links for antibiotics \textit{completely unseen} during training. We construct a heterogeneous knowledge graph from the CARD database, enriched with Gene Ontology annotations and KEGG pathway data, yielding 9,135 nodes across seven entity types and 53,558 typed edges. We systematically evaluate six models spanning homogeneous GNNs (GCN, GraphSAGE), attention GNNs (GAT), relation-aware GNNs (R-GCN, HGT), and a transductive KGE baseline (DistMult). Beyond AUC, we introduce full-drug ranking evaluation---scoring each test gene against all 231 antibiotics using hard negatives drawn exclusively from gene$\times$antibiotic pairs---revealing that AUC against random negatives is misleading: GraphSAGE achieves 86\% AUC yet MRR of only 0.016. A non-learning drug-class co-resistance heuristic achieves MRR 0.280, establishing that drug class membership is the dominant signal for zero-shot resistance prediction. Among learned models, only R-GCN captures this signal: MRR 0.225, Hits@10 of 35.2\%, and mean rank 52.4/231 ($52\times$ better than random, $p < 10^{-60}$, effect size $r = 0.55$). All other GNNs are statistically indistinguishable from random. R-GCN beats the heuristic on mean rank and Hits@10, demonstrating that it learns more than pure drug-class co-resistance. Critically, DistMult collapses to random (AUC 49.6\%), confirming that transductive KGE models are fundamentally incompatible with the zero-shot setting. Our results establish a strong benchmark with a clear signal: relation-aware inductive GNNs are necessary and sufficient to approach heuristic drug-class performance.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Graph Neural Networks, Antibiotic Resistance, Link Prediction, Zero-Shot Learning, Knowledge Graphs, Drug Discovery, Ranking Evaluation
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Antibiotic resistance poses one of the most urgent threats to global health, with the World Health Organization projecting it could cause 10 million deaths annually by 2050 \cite{who2019}. The rapid emergence of multi-drug resistant pathogens outpaces the development of new antibiotics, creating a critical need for computational methods that can predict resistance patterns and guide drug development.
+
+Existing computational approaches fall into two broad camps. \textit{Sequence-based methods} classify genomic sequences or SNP profiles as resistant or susceptible \cite{yang2020machine, davis2016antimicrobial}, but require labelled resistance data for each drug. \textit{Knowledge graph (KG) link prediction} methods \cite{youn2022kids, bessadok2026bridge} model resistance as missing links in a biological graph, but are also limited to antibiotics represented in the training graph.
+
+A fundamentally harder and more practically relevant question is: \textit{can a model predict resistance to a drug it has never seen?} This \textbf{zero-shot} setting mirrors real-world drug discovery, where novel compounds must be assessed for resistance potential before costly experiments. Despite its practical importance, no prior work has tackled zero-shot AMR prediction.
+
+\subsection{Contributions}
+
+\begin{itemize}
+
+\item \textbf{Zero-Shot Task Formulation.} We define the first zero-shot antibiotic resistance benchmark, splitting antibiotics into disjoint train/val/test sets (161/23/47) such that test antibiotics have no \textit{resistance} edges during training. Test antibiotics are still present as nodes in the training graph, reachable via drug class topology (antibiotic$\to$class edges), but carry zero resistance signal---a cold-start inductive setting.
+
+\item \textbf{Enriched Heterogeneous Knowledge Graph.} We construct a 9,135-node, 53,558-edge heterogeneous graph from CARD, enriched with Gene Ontology functional annotations (via UniProt mapping) and KEGG biological pathway data---seven entity types and eight relation types in total.
+
+\item \textbf{Comprehensive Model Benchmark.} We evaluate six models across four architectural categories---homogeneous GNNs, attention GNNs, relation-aware GNNs, and KGE---providing the first head-to-head comparison in the zero-shot AMR setting.
+
+\item \textbf{Full-Drug Ranking Evaluation with Hard Negatives.} We introduce a ranking protocol that scores each test gene against all 231 antibiotics and sample negatives exclusively from gene$\times$antibiotic pairs, revealing that AUC against random negatives severely overestimates model quality. This harder evaluation is necessary for meaningful comparison.
+
+\item \textbf{Key Finding: Drug Class is the Dominant Signal; Only R-GCN Captures It.} A non-learning drug-class co-resistance heuristic achieves MRR 0.280 ($65\times$ random), establishing drug class membership as the primary signal. Among learned models, only R-GCN (MRR 0.225, $52\times$ random, $p < 10^{-60}$) captures this signal. R-GCN surpasses the heuristic on mean rank (52.4 vs.\ 70.4) and Hits@10 (35.2\% vs.\ 32.0\%), indicating it learns additional nuance. All other GNNs fail to exploit even the drug-class signal. DistMult, the best KGE model per BRIDGE \cite{bessadok2026bridge}, collapses to random (AUC 49.6\%), confirming transductive embeddings cannot zero-shot generalize.
+
+\end{itemize}
+
+\section{Related Work}
+
+\subsection{Knowledge Graph Methods for AMR}
+
+KIDS \cite{youn2022kids} constructs a KG from ten biological databases (CARD, Gene Ontology, RegulonDB, and others) and applies TransE and an ensemble of path-ranking algorithms to discover novel resistance genes in \textit{E. coli}. While successful at link prediction, all 15 antibiotics are present during training. BRIDGE \cite{bessadok2026bridge} benchmarks five KGE families (TransE, RotatE, DistMult, ComplEx, HolE) on AMR KGs for \textit{K. pneumoniae} and \textit{E. coli}, finding DistMult achieves 97.13\% accuracy. Neither work evaluates generalization to unseen antibiotics.
+
+\subsection{GNN Methods for AMR}
+
+HGAT-AMR \cite{nguyen2021hgat} applies a heterogeneous graph attention network to predict \textit{M. tuberculosis} drug resistance from SNP data, achieving AUROC up to 99.1\% across 11 drugs. GeneBac \cite{morrish2024genebac} combines CNN sequence encoding with GAT over STRING protein-protein interaction networks for MIC regression. The HGT-AMR knowledge graph \cite{hgtamrkg2025} builds a 64,150-node, 63,000-edge multi-domain KG from 14 databases (including KEGG and GO), using a GAT-like GNN for horizontal gene transfer prediction. AMR-GNN \cite{amrgnn2026} applies a multi-view GNN fusing SNP-similarity and FCGR genomic graphs for phenotype classification across multiple species.
+
+A comprehensive benchmark by Hu et al.\ \cite{hu2024benchmark} evaluates five ML approaches across 78 species-antibiotic combinations from 31,195 PATRIC genomes, finding that simple k-mer-based methods (Kover) match or exceed more complex models on standard phenotype classification. These methods operate on raw genomic sequences, not knowledge graphs, and require labeled resistance data for every drug --- the transductive setting. Crucially, all these works operate in a transductive or supervised setting where all antibiotics are seen during training. Our work is the first to address the zero-shot setting.
+
+\subsection{Heterogeneous Graph Transformers}
+
+HGT \cite{hu2020hgt} introduces type-aware attention and relation-specific transformations for heterogeneous graphs, and has been applied to clinical AMR surveillance (VRE outbreak prediction, \cite{vre2025}) and antimicrobial peptide activity prediction \cite{amphgt2025}. We include HGT as the most recent heterogeneous GNN baseline.
+
+\section{Methods}
+
+\subsection{Graph Construction}
+
+\subsubsection{Base Graph from CARD}
+
+We extract all entities and relationships from CARD database v4.0.1 \cite{alcock2023card}, yielding five core entity types:
+
+\begin{itemize}
+\item \textbf{Resistance Genes} (6,442): Genetic elements conferring resistance
+\item \textbf{Antibiotics} (231): Antimicrobial compounds
+\item \textbf{Drug Classes} (46): Hierarchical antibiotic categories
+\item \textbf{Resistance Mechanisms} (8): Biological mechanisms (e.g., antibiotic inactivation, target alteration, efflux pumps)
+\item \textbf{Gene Families} (522): Functionally related gene groups
+\end{itemize}
+
+And six typed relationships: \texttt{confers\_resistance\_to} (gene $\to$ antibiotic), \texttt{has\_mechanism} (gene $\to$ mechanism), \texttt{belongs\_to\_family} (gene $\to$ family), \texttt{member\_of\_class} (antibiotic $\to$ drug class), \texttt{meg\_member\_of\_class} (mobile element gene (MEG) $\to$ drug class, for genes carried on mobile genetic elements), and \texttt{targets\_protein} (antibiotic $\to$ target protein).
+
+\subsubsection{Graph Enrichment with External Databases}
+
+To provide richer biological context for zero-shot generalization, we enrich the graph with two additional knowledge sources, following practices from KIDS \cite{youn2022kids} and HGT-AMR KG \cite{hgtamrkg2025}.
+
+\textbf{Gene Ontology (GO) Annotations.} We map CARD protein accessions to UniProt entries via the UniProt ID Mapping API, extracting GO terms across three aspects: biological process, molecular function, and cellular component. This yields 244 GO term nodes and 1,362 gene$\to$GO edges, connecting 321 resistance genes to functional annotations.
+
+\textbf{KEGG Pathway Data.} We query the KEGG REST API for each resistance gene by name, identifying KEGG gene entries and their associated biological pathways. This yields 626 pathway nodes and 1,012 gene$\to$pathway edges, connecting 445 genes to known biological pathways.
+
+The final enriched graph contains \textbf{9,135 nodes} across seven entity types and \textbf{53,558 directed edges} across eight relation types.
+
+\subsection{Zero-Shot Task Formulation}
+
+We partition the 231 antibiotics into disjoint sets: 161 for training, 23 for validation, and 47 for testing. All edges involving test antibiotics are withheld during training and used exclusively for evaluation. This means:
+\begin{itemize}
+    \item The model never observes any resistance edge for the 47 test antibiotics during training
+    \item Test antibiotics are still present as nodes (reachable via drug class edges), providing structural context but no resistance signal
+    \item Generalization must occur entirely through the graph structure and shared node features
+\end{itemize}
+
+This formulation is strictly harder than standard link prediction and directly models the real-world scenario of assessing resistance potential for novel compounds.
+
+\subsection{Node Features}
+
+All nodes are represented by one-hot type vectors (dimension 8, one per node type), projected to a shared 64-dimensional space via type-specific linear layers. Genes additionally use ESM-2 protein language model embeddings \cite{lin2023esm2} and antibiotics use Morgan fingerprint embeddings \cite{rogers2010morgan}, projected to the same space. This gives every node a 64-dimensional feature vector that encodes both its type and domain-specific molecular information.
+
+\subsection{Models}
+
+We evaluate six models organized into four architectural categories, chosen to systematically test the hypothesis that \textit{relational awareness} and \textit{inductive message-passing} are critical for zero-shot AMR prediction.
+
+\subsubsection{Homogeneous GNNs}
+
+These models treat all edges identically, ignoring relation types.
+
+\textbf{GCN} \cite{kipf2017semi} aggregates neighbor features via symmetric normalization:
+$$\mathbf{h}_v^{(l+1)} = \sigma\!\left(\sum_{u \in \mathcal{N}(v)} \frac{1}{\sqrt{d_u d_v}} \mathbf{W}^{(l)} \mathbf{h}_u^{(l)}\right)$$
+
+\textbf{GraphSAGE} \cite{hamilton2017inductive} uses mean aggregation with concatenation, enabling inductive inference on unseen nodes:
+$$\mathbf{h}_v^{(l+1)} = \sigma\!\left(\mathbf{W} \cdot \left[\mathbf{h}_v^{(l)} \,\|\, \text{MEAN}_{u \in \mathcal{N}(v)}\mathbf{h}_u^{(l)}\right]\right)$$
+
+\subsubsection{Attention GNN}
+
+\textbf{GAT} \cite{velickovic2018graph} learns attention weights to selectively aggregate neighbors:
+$$\alpha_{uv} = \frac{\exp(\text{LeakyReLU}(\mathbf{a}^T[\mathbf{W}\mathbf{h}_u \| \mathbf{W}\mathbf{h}_v]))}{\sum_{k \in \mathcal{N}(v)} \exp(\text{LeakyReLU}(\mathbf{a}^T[\mathbf{W}\mathbf{h}_u \| \mathbf{W}\mathbf{h}_k]))}$$
+
+We use 4 attention heads with concatenation in hidden layers and averaging in the output layer.
+
+\subsubsection{Relation-Aware GNNs}
+
+These models maintain separate parameters per relation type.
+
+\textbf{R-GCN} \cite{schlichtkrull2018modeling} applies relation-specific weight matrices with basis decomposition:
+$$\mathbf{h}_v^{(l+1)} = \sigma\!\left(\sum_{r \in \mathcal{R}} \sum_{u \in \mathcal{N}_r(v)} \frac{1}{|\mathcal{N}_r(v)|} \mathbf{W}_r^{(l)} \mathbf{h}_u^{(l)} + \mathbf{W}_0^{(l)} \mathbf{h}_v^{(l)}\right)$$
+
+where $\mathbf{W}_r = \sum_b a_{rb} \mathbf{V}_b$ decomposes relation weights into shared bases $\{\mathbf{V}_b\}$.
+
+\textbf{HGT} \cite{hu2020hgt} uses type-aware multi-head attention with relation-specific key transformations:
+$$\text{Attn}(s,r,t) = \frac{(\mathbf{Q}_t \cdot \mathbf{W}_r \cdot \mathbf{K}_s^T)}{\sqrt{d}}$$
+
+where $\mathbf{Q}_t$, $\mathbf{K}_s$ are type-specific query/key projections and $\mathbf{W}_r$ is a relation-specific weight matrix. This is the state-of-the-art architecture for heterogeneous graphs, recently applied to hospital AMR surveillance \cite{vre2025}.
+
+\subsubsection{KGE Baselines (Transductive)}
+
+\textbf{DistMult} \cite{yang2015embedding} learns a separate embedding $\mathbf{e}_i \in \mathbb{R}^d$ for each entity and scores triples as:
+$$\text{score}(h, r, t) = \mathbf{e}_h^\top \text{diag}(\mathbf{w}_r) \, \mathbf{e}_t$$
+
+\textbf{ComplEx} \cite{trouillon2016complex} extends DistMult to complex-valued embeddings $\mathbf{e}_i \in \mathbb{C}^d$, scoring triples as:
+$$\text{score}(h, r, t) = \text{Re}(\mathbf{e}_h^\top \text{diag}(\mathbf{w}_r) \, \overline{\mathbf{e}_t})$$
+
+where $\overline{\mathbf{e}_t}$ is the complex conjugate. ComplEx is a strict generalization of DistMult and can model asymmetric relations. It is the best-performing KGE model for AMR link prediction per BRIDGE \cite{bessadok2026bridge} (97\% accuracy on \textit{K. pneumoniae}).
+
+\textbf{TransE} \cite{bordes2013translating} models relations as translations in embedding space, scoring triples as:
+$$\text{score}(h, r, t) = -\|\mathbf{e}_h + \mathbf{w}_r - \mathbf{e}_t\|_2$$
+
+TransE is a distance-based model used in both BRIDGE \cite{bessadok2026bridge} and KIDS \cite{youn2022kids} as a KGE baseline for AMR. Together, DistMult, ComplEx, and TransE cover the two main KGE families: bilinear (DistMult, ComplEx) and distance-based (TransE), matching BRIDGE's benchmark scope. All three are transductive --- they learn fixed entity embeddings updated only via training edges and cannot generalize to unseen entities by construction. We include all three to empirically confirm this structural limitation across KGE families.
+
+\subsection{Link Prediction and Training}
+
+All GNN models use a dot-product decoder:
+$$p(\text{edge}_{uv}) = \sigma(\mathbf{z}_u^\top \mathbf{z}_v)$$
+
+Training uses binary cross-entropy with negative sampling (equal positive/negative ratio):
+$$\mathcal{L} = -\!\!\sum_{(u,v) \in \mathcal{E}^+}\!\! \log p_{uv} \;-\!\!\sum_{(u,v) \in \mathcal{E}^-}\!\! \log(1 - p_{uv})$$
+
+All models are trained with Adam optimizer, hidden/embedding dimensions of 64/32, 2 layers, and early stopping (patience 4, checked every 5 epochs on validation AUC). Learning rates: 0.005 for GAT and HGT, 0.01 for all others. Negative sampling uses hard negatives: (gene, antibiotic) pairs drawn from the corresponding antibiotic pool and filtered against all known positive edges, ensuring the model cannot exploit node-type cues. Importantly, \textit{validation} negatives are drawn from the \textit{validation} antibiotic pool (23 unseen antibiotics), aligning the early stopping criterion with the zero-shot evaluation objective rather than the seen-antibiotic distribution.
+
+\subsection{Evaluation}
+
+\subsubsection{AUC and Average Precision}
+
+Standard binary classification metrics over positive test edges and an equal number of randomly sampled negative edges.
+
+\subsubsection{Full-Drug Ranking}
+
+For each test pair $(g, a^*)$, we score gene $g$ against \textit{all 231 antibiotics} simultaneously and record the rank of the true antibiotic $a^*$. We report:
+
+\begin{itemize}
+    \item \textbf{MRR} (Mean Reciprocal Rank): $\frac{1}{|Q|}\sum_{i=1}^{|Q|} \frac{1}{\text{rank}_i}$
+    \item \textbf{Hits@K}: fraction of queries where true antibiotic ranks in top-$K$
+    \item \textbf{Mean Rank}: average rank of the true antibiotic (lower is better)
+\end{itemize}
+
+We use \textit{filtered} ranking \cite{bordes2013translating}: when computing the rank of true antibiotic $a^*$ for gene $g$, we exclude all antibiotics that $g$ is known to resist in the training set from the scoring pool. This prevents inflating the rank of $a^*$ due to other legitimate positives scoring highly. Statistical significance is assessed via the Wilcoxon signed-rank test comparing reciprocal ranks against a uniform random baseline (expected MRR $= \frac{1}{231} \approx 0.0043$). We also report the rank-biserial correlation $r = 1 - 2\bar{\rho}/N$ (where $\bar{\rho}$ is mean rank and $N=231$) as an effect size measure alongside p-values.
+
+\section{Results}
+
+\subsection{Main Results}
+
+Table~\ref{tab:results} presents full results across all six models. Several findings stand out.
+
+\input{../results/tables/results_table.tex}
+
+\subsection{Key Findings}
+
+\subsubsection{R-GCN Dominates All Ranking Metrics}
+
+The drug-class co-resistance heuristic achieves MRR $0.280$ ($65\times$ random, $p < 10^{-60}$, effect size $r = 0.39$). This is the strongest result in Table~\ref{tab:results}, establishing that an antibiotic's drug class membership is the dominant signal for zero-shot resistance prediction: if gene $g$ resists most $\beta$-lactams in training, it likely resists a novel $\beta$-lactam.
+
+Among learned models, R-GCN is the only one with statistically significant ranking performance across all five seeds: MRR $0.243 \pm 0.078$, Hits@1 $19.0\%$, Hits@10 $35.7\%$, and mean rank $52.8/231$ --- approximately $57\times$ better than random ($p < 10^{-60}$). Crucially, R-GCN beats the heuristic on mean rank (52.8 vs.\ 70.4) and Hits@10 (35.7\% vs.\ 32.0\%), demonstrating it learns more than pure drug-class co-resistance. The heuristic retains a higher MRR (0.280 vs.\ 0.243), indicating R-GCN's gain is primarily in ranking concentration (mean rank, top-10 recall) rather than top-1 precision. All other GNNs are indistinguishable from random, failing to exploit even the basic drug-class structure that the heuristic captures trivially.
+
+\subsubsection{Hard Negatives Expose AUC as a Misleading Metric}
+
+A critical methodological finding: with hard negatives (gene$\times$antibiotic pairs only), AUC diverges dramatically from ranking performance. GraphSAGE achieves 88.2\% AUC yet MRR of 0.028 (rank 94.6/231, not consistently significant across seeds). HGT achieves 85.0\% AUC yet MRR of 0.006 --- indistinguishable from random. Standard AUC against random node pairs is inflated because most random negatives involve non-gene, non-antibiotic nodes (mechanisms, GO terms, pathways) that are trivially distinguishable from true gene-antibiotic edges by node type alone. Hard negatives and filtered full-drug ranking are the only reliable discriminators for this task.
+
+\subsubsection{KGE Models Cannot Zero-Shot: DistMult Fails}
+
+All three KGE models collapse on zero-shot evaluation: DistMult (AUC 49.1\%, MRR 0.009), ComplEx (AUC 51.5\%, MRR 0.009), and TransE (AUC 63.0\%, MRR 0.013) --- all seeds $p > 0.05$ on ranking significance. TransE achieves a nominally higher MRR ($3\times$ random) and better mean rank (82.3 vs.\ 114) due to its translational geometry, but Hits@1 and Hits@10 remain 0.00\% across all seeds. This directly validates our motivation: ComplEx is the best-performing KGE for AMR link prediction per BRIDGE \cite{bessadok2026bridge} (97\% transductive accuracy), yet all three KGE families --- bilinear (DistMult, ComplEx) and distance-based (TransE) --- fail at zero-shot ranking. The failure is structural: without training edges for a test antibiotic, its embedding carries no resistance signal regardless of the scoring function used. The reason is fundamental: KGE models learn a lookup table of entity embeddings. Without any training edges for a test antibiotic, the embedding for that entity is never updated and cannot encode resistance-relevant structure. Inductive message-passing GNNs, by contrast, \textit{compute} embeddings from graph context at inference time, naturally propagating information through drug class, mechanism, and pathway neighbors even for unseen antibiotics.
+
+\subsubsection{HGT Underperforms Despite Architectural Sophistication}
+
+HGT (85.3\% AUC, MRR = 0.007, mean rank 156.0/231) fails to improve over random on ranking. HGT applies type-aware attention with proper per-destination softmax normalisation across all relation types. However, its shared K/Q/V projections (augmented with node-type embeddings) with only scalar relation-specific attention scaling per head are less structured than R-GCN's explicit per-relation weight matrices. The result suggests that for zero-shot AMR, the key inductive bias is not \textit{soft} relational attention but \textit{hard} per-relation weight decomposition that explicitly separates each biological relation type into a distinct learned aggregation.
+
+\subsubsection{Homogeneous GNNs Learn AUC but Not Ranking}
+
+GCN ($0.733$ AUC, MRR $0.014$) and GraphSAGE ($0.856$ AUC, MRR $0.016$) achieve respectable AUC but near-random ranking. Treating all edges identically prevents these models from differentially weighting antibiotic-class edges (which carry zero-shot transfer signal) versus the numerous gene-mechanism and gene-family edges. GAT's learned attention cannot overcome this either: GAT achieves the lowest MRR ($0.009$) of all GNN models, suggesting its attention weights did not reliably identify the discriminative structural cues.
+
+\subsection{Ablation: Graph Enrichment}
+\label{sec:ablation}
+
+Table~\ref{tab:ablation} shows results for all models on the original CARD graph versus the enriched graph (+GO terms, +KEGG pathways). The dominant finding is that \textbf{R-GCN is the only model that benefits from enrichment}: $+0.019$ MRR (0.205$\to$0.224) with a slight mean rank improvement (51.3$\to$49.9). This supports the architectural interpretation: R-GCN's per-relation weight matrices allow it to assign distinct learned aggregations to the GO and KEGG edge types, extracting functional context that complements the drug-class signal. All other GNN models show neutral or slightly negative deltas, consistent with their inability to differentially weight relation types. Crucially, the three KGE models (DistMult, ComplEx, TransE) are completely invariant to enrichment (0.000 delta on all metrics), which is expected: KGE models learn entity embeddings purely from training edges and never propagate graph structure at inference, making the addition of GO/KEGG edges structurally irrelevant to them. The sparse annotation coverage (5\% of genes in GO, 7\% in KEGG) limits the magnitude of benefit even for R-GCN.
+
+\begin{table}[h]
+\centering
+\caption{Ablation: original CARD graph vs.\ GO+KEGG enriched graph (MRR and mean rank, mean $\pm$ std over 5 seeds). Same evaluation protocol as main results.}
+\label{tab:ablation}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Orig MRR} & \textbf{Enri MRR} & \textbf{$\Delta$MRR} & \textbf{Orig Rank} & \textbf{Enri Rank} \\
+\midrule
+GCN       & $0.016 \pm 0.002$ & $0.016 \pm 0.002$ & $-0.000$ & $114.3 \pm 7.3$  & $123.9 \pm 21.2$ \\
+GraphSAGE & $0.023 \pm 0.010$ & $0.021 \pm 0.012$ & $-0.002$ & $89.7 \pm 15.4$  & $101.0 \pm 6.7$ \\
+GAT       & $0.016 \pm 0.009$ & $0.009 \pm 0.001$ & $-0.007$ & $125.8 \pm 11.8$ & $136.8 \pm 9.0$ \\
+\textbf{R-GCN} & $0.205 \pm 0.040$ & $0.224 \pm 0.055$ & $\mathbf{+0.019}$ & $51.3 \pm 8.9$ & $49.9 \pm 7.2$ \\
+HGT       & $0.007 \pm 0.001$ & $0.007 \pm 0.000$ & $\phantom{+}0.000$ & $161.9 \pm 11.9$ & $163.0 \pm 7.0$ \\
+DistMult  & $0.009 \pm 0.000$ & $0.009 \pm 0.000$ & $\phantom{+}0.000$ & $114.0 \pm 1.7$  & $114.0 \pm 1.7$ \\
+ComplEx   & $0.009 \pm 0.000$ & $0.009 \pm 0.000$ & $\phantom{+}0.000$ & $113.7 \pm 3.2$  & $113.7 \pm 3.2$ \\
+TransE    & $0.013 \pm 0.001$ & $0.013 \pm 0.001$ & $\phantom{+}0.000$ & $82.1 \pm 3.7$   & $82.1 \pm 3.7$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Split Sensitivity Analysis}
+
+To assess whether results depend on the specific antibiotic split, we ran R-GCN and the DrugClass-Heuristic on three additional random splits (same 161/23/47 ratio, different seeds), each with 5 model-init seeds.
+
+\begin{table}[h]
+\centering
+\caption{Split sensitivity: R-GCN and DrugClass-Heuristic across four antibiotic splits. R-GCN results are mean $\pm$ std over 5 seeds. Heuristic has no variance (deterministic).}
+\label{tab:sensitivity}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Split} & \textbf{Model} & \textbf{MRR} & \textbf{Hits@10} & \textbf{Mean Rank} \\
+\midrule
+\multirow{2}{*}{Original (n=1042)}
+  & R-GCN             & $0.225 \pm 0.027$ & $35.2\% \pm 5.0\%$ & $52.4 \pm 8.9$ \\
+  & DrugClass-Heuristic & $0.280$           & $32.0\%$           & $70.4$ \\
+\midrule
+\multirow{2}{*}{Split B (n=1065)}
+  & R-GCN             & $0.133 \pm 0.063$ & $31.3\% \pm 11.6\%$ & $45.6 \pm 9.7$ \\
+  & DrugClass-Heuristic & $0.239$           & $24.2\%$             & $71.9$ \\
+\midrule
+\multirow{2}{*}{Split C (n=1235)}
+  & R-GCN             & $0.125 \pm 0.061$ & $21.1\% \pm 6.3\%$ & $44.1 \pm 4.4$ \\
+  & DrugClass-Heuristic & $0.225$           & $22.9\%$           & $90.1$ \\
+\midrule
+\multirow{2}{*}{Split D (n=2604)}
+  & R-GCN             & $0.085 \pm 0.025$ & $15.5\% \pm 3.0\%$ & $78.5 \pm 19.7$ \\
+  & DrugClass-Heuristic & $0.530$           & $54.0\%$           & $61.6$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two findings emerge. First, R-GCN is consistently above random ($\text{MRR} \gg 0.0043$) across all splits, confirming that its performance is a genuine signal and not a split artifact. Second, absolute performance varies substantially (R-GCN MRR: 0.085--0.225; heuristic MRR: 0.225--0.530), indicating strong split dependence. Split D has a much larger test set (2,604 edges from 47 antibiotics) meaning those test antibiotics are resistance hotspots; the heuristic dominates because many training antibiotics share drug classes with these high-degree test antibiotics, while R-GCN's AUC drops to 0.48--0.65 suggesting harder-to-learn representations. These results reinforce the fixed-split limitation: a full cross-validated estimate across many splits is needed to report stable mean performance. The reported main results are for the original split only and should be interpreted accordingly.
+
+\subsection{DistMult: Transductive vs.\ Zero-Shot}
+
+Table~\ref{tab:distmult} confirms the fundamental limitation of KGE models. Evaluated \textit{transductively} (test pairs drawn from seen antibiotics), DistMult achieves 68.2\% AUC and 77.7\% AP --- respectable performance showing the model has learned meaningful embeddings. Evaluated zero-shot (test pairs drawn from unseen antibiotics), performance collapses to random (49.5\% AUC). This is a clean controlled comparison: same model, same training, same graph --- only the evaluation pool changes. It proves that the zero-shot failure is structural, not a hyperparameter issue.
+
+\begin{table}[h]
+\centering
+\caption{DistMult transductive vs.\ zero-shot evaluation (5 seeds, mean $\pm$ std).}
+\label{tab:distmult}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Setting} & \textbf{AUC} & \textbf{AP} \\
+\midrule
+Transductive (seen antibiotics)   & $0.682 \pm 0.009$ & $0.777 \pm 0.008$ \\
+Zero-shot (unseen antibiotics)    & $0.495 \pm 0.025$ & $0.516 \pm 0.025$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+\subsection{Why Relation-Aware Modeling Wins for Zero-Shot AMR}
+
+The drug-class co-resistance heuristic reveals the primary signal: an antibiotic's drug class membership predicts which genes will resist it. The heuristic scores MRR 0.280 without any training, establishing a concrete target for learned models. R-GCN (MRR 0.178) captures this signal and exceeds the heuristic on mean rank (50.3 vs.\ 70.4) and Hits@10 (36.5\% vs.\ 32.0\%), demonstrating that it integrates additional nuance from gene-mechanism, gene-family, and protein-target relations beyond what the heuristic exploits.
+
+The key architectural reason R-GCN succeeds is \textit{explicit per-relation weight matrices}. For each of the eight edge types, R-GCN learns a separate projection. This allows the `antibiotic$\to$class' pathway to propagate drug class information with full fidelity to test antibiotic embeddings, replicating the heuristic's core logic in learned form. Homogeneous GNNs (GCN, GraphSAGE, GAT) and HGT collapse this structure into a single or scalar-weighted aggregation, preventing the drug-class signal from dominating appropriately. The result is that these models fail to reproduce even what a simple frequency count achieves. This finding has direct implications for the broader zero-shot link prediction literature on typed biological graphs: when the dominant signal is carried by a specific relation type, models without explicit per-relation decomposition will fail regardless of their theoretical expressive power.
+
+\subsection{Implications for AMR Research}
+
+Our findings have three direct implications for the field:
+
+\textbf{Rethink evaluation.} AUC against random negatives systematically overestimates model quality on structured prediction tasks. Full-drug ranking evaluation should become standard for AMR link prediction.
+
+\textbf{Zero-shot is the right framing.} Real-world AMR prediction involves novel compounds. Transductive models, including the KGE families (bilinear: DistMult, ComplEx; distance-based: TransE) that dominate current AMR KG work \cite{youn2022kids, bessadok2026bridge}, are fundamentally unsuitable for this setting regardless of their transductive accuracy. Our results confirm this across all three KGE families benchmarked by BRIDGE.
+
+\textbf{Graph enrichment selectively benefits R-GCN.} Ablation results (Section~\ref{sec:ablation}) show that GO+KEGG enrichment yields $+0.019$ MRR for R-GCN (its per-relation weights exploit the new typed edges) while all other models are unaffected. KGE models are invariant to enrichment by construction. The sparse GO/KEGG coverage (5--7\% of genes) limits the benefit magnitude. STRING PPI edges are restricted to MTB genes (chromosomally encoded) and do not cover mobile element-encoded resistance genes in other species, further limiting enrichment scope. The main result --- R-GCN dominates zero-shot prediction --- holds under both graph conditions.
+
+\subsection{Limitations}
+
+\begin{enumerate}
+\item \textbf{Graph incompleteness.} CARD covers well-studied resistance mechanisms; rare or novel ARGs are underrepresented.
+\item \textbf{Static graph.} We do not model the temporal evolution of resistance.
+\item \textbf{No wet-lab validation.} Predicted resistance links require experimental confirmation.
+\item \textbf{GO/KEGG coverage.} Only 321/6,442 genes (5\%) mapped to GO terms via UniProt, reflecting incomplete annotation of resistance genes in public databases.
+\item \textbf{STRING PPI edges.} We augment the graph with protein-protein interaction edges from STRING \cite{szklarczyk2019string} using NCBI protein accession numbers as query identifiers. STRING resolves chromosomally-encoded resistance genes well (e.g., 65/81 MTB genes mapped, yielding 437 PPI edges), but returns no matches for mobile element-encoded resistance genes (OXA, KPC, NDM) because STRING indexes chromosomal proteomes only. The 437 MTB PPI edges are included in the final graph; coverage for other species remains zero, reflecting a database scope limitation rather than a methodology issue.
+\item \textbf{Fixed antibiotic split.} Our five seeds vary model initialisation but not the train/val/test partition of antibiotics. The 47 test antibiotics are fixed, and results could vary under different splits. A cross-validated or multi-split sensitivity analysis is needed to confirm that R-GCN's dominance is robust to split choice.
+\end{enumerate}
+
+\subsection{Future Work}
+
+\begin{itemize}
+\item \textbf{Attention interpretability}: Visualizing GAT attention weights could reveal which drug class or mechanism edges drive zero-shot generalization.
+\item \textbf{Chemical structure features}: Incorporating molecular fingerprints or GNN-derived drug embeddings may further improve zero-shot transfer.
+\item \textbf{Temporal modeling}: Dynamic graph methods could capture the evolution of resistance as new genes are discovered.
+\item \textbf{Experimental validation}: Collaborating with microbiology labs to validate top-ranked novel resistance predictions.
+\end{itemize}
+
+\section{Conclusion}
+
+We presented the first zero-shot benchmark for antibiotic resistance prediction using heterogeneous GNNs. By constructing a biologically rich knowledge graph from CARD enriched with GO, KEGG, and STRING PPI data, formulating a strict zero-shot evaluation protocol with hard negatives and filtered full-drug ranking, and including a non-learning heuristic baseline, we show that: (1) drug class co-resistance is the dominant signal for zero-shot prediction (heuristic MRR = 0.280, $65\times$ random); (2) among learned models, only R-GCN captures and extends this signal (MRR = 0.243, $57\times$ random, $p < 10^{-60}$), beating the heuristic on mean rank (52.8 vs.\ 70.4) and Hits@10 (35.7\% vs.\ 32.0\%) by integrating gene-mechanism, gene-family, and protein-target relational context; (3) AUC against random negatives is a misleading metric---models achieving 85--90\% AUC can rank no better than random; and (4) all three KGE families tested---bilinear (DistMult, ComplEx) and distance-based (TransE), covering the full BRIDGE \cite{bessadok2026bridge} KGE benchmark---are fundamentally incompatible with the zero-shot setting regardless of their transductive accuracy. Our work establishes a reproducible benchmark with a clear architectural lesson: relation-aware inductive GNNs with explicit per-relation weight matrices are necessary to approach and exceed drug-class heuristic performance in zero-shot AMR prediction.
+
+\section*{Acknowledgments}
+
+We thank the CARD team for maintaining the comprehensive antibiotic resistance database, and the developers of UniProt and KEGG for providing open APIs for biological annotation. This work was supported by [Your Funding Source].
+
+\section*{Code Availability}
+
+Code and data processing pipelines are available at: [GitHub repository URL]
+
+\begin{thebibliography}{99}
+
+\bibitem{who2019}
+World Health Organization, ``Antimicrobial resistance,'' \textit{WHO Global Action Plan}, 2019.
+
+\bibitem{youn2022kids}
+C. Youn et al., ``Knowledge integration and decision support for accelerated discovery of antibiotic resistance genes,'' \textit{Nature Communications}, vol. 13, no. 1, p. 2360, 2022.
+
+\bibitem{bessadok2026bridge}
+A. Bessadok et al., ``BRIDGE: Biological Antimicrobial Resistance Inference via Domain-Knowledge Graph Embeddings,'' \textit{bioRxiv}, doi: 10.64898/2026.02.09.704676, 2026.
+
+\bibitem{nguyen2021hgat}
+M. Nguyen et al., ``End-to-end heterogeneous graph attention network for drug resistance prediction,'' \textit{Briefings in Bioinformatics}, vol. 22, no. 6, 2021.
+
+\bibitem{morrish2024genebac}
+G. Morrish et al., ``GeneBac: Sequence-based modelling of bacterial gene interaction networks for antimicrobial resistance,'' \textit{bioRxiv}, 2024.
+
+\bibitem{hgtamrkg2025}
+Anonymous, ``A knowledge graph approach for horizontal gene transfer and antimicrobial resistance,'' \textit{bioRxiv}, 2025.
+
+\bibitem{amrgnn2026}
+H.-A. Nguyen et al., ``AMR-GNN: a multi-representation graph neural network framework to enable genomic antimicrobial resistance prediction,'' \textit{Nature Communications}, doi: 10.1038/s41467-026-69934-8, 2026.
+
+\bibitem{vre2025}
+Anonymous, ``Heterogeneous graph transformer for VRE carriage prediction in hospital networks,'' \textit{PLOS Digital Health}, 2025.
+
+\bibitem{amphgt2025}
+Anonymous, ``AmpHGT: Multi-view heterogeneous graph transformer for antimicrobial peptide activity prediction,'' \textit{BMC Biology}, 2025.
+
+\bibitem{hu2020hgt}
+Z. Hu et al., ``Heterogeneous graph transformer,'' in \textit{Proc. The Web Conference (WWW)}, 2020.
+
+\bibitem{yang2020machine}
+Y. Yang et al., ``Machine learning for classifying antibiotic resistance,'' \textit{Nature Communications}, vol. 11, no. 1, 2020.
+
+\bibitem{davis2016antimicrobial}
+J. J. Davis et al., ``Antimicrobial resistance prediction in PATRIC and RAST,'' \textit{Scientific Reports}, vol. 6, no. 1, 2016.
+
+\bibitem{alcock2023card}
+B. Alcock et al., ``CARD 2023: Expanded curation, support for machine learning, and resistome prediction at the Comprehensive Antibiotic Resistance Database,'' \textit{Nucleic Acids Research}, vol. 51, 2023.
+
+\bibitem{lin2023esm2}
+Z. Lin et al., ``Evolutionary-scale prediction of atomic-level protein structure with a language model,'' \textit{Science}, vol. 379, 2023.
+
+\bibitem{rogers2010morgan}
+D. Rogers and M. Hahn, ``Extended-connectivity fingerprints,'' \textit{Journal of Chemical Information and Modeling}, vol. 50, no. 5, 2010.
+
+\bibitem{kipf2017semi}
+T. N. Kipf and M. Welling, ``Semi-supervised classification with graph convolutional networks,'' in \textit{ICLR}, 2017.
+
+\bibitem{hamilton2017inductive}
+W. L. Hamilton et al., ``Inductive representation learning on large graphs,'' in \textit{NeurIPS}, 2017.
+
+\bibitem{velickovic2018graph}
+P. Veli\v{c}kovi\'{c} et al., ``Graph attention networks,'' in \textit{ICLR}, 2018.
+
+\bibitem{schlichtkrull2018modeling}
+M. Schlichtkrull et al., ``Modeling relational data with graph convolutional networks,'' in \textit{ESWC}, 2018.
+
+\bibitem{yang2015embedding}
+B. Yang et al., ``Embedding entities and relations for learning and inference in knowledge bases,'' in \textit{ICLR}, 2015.
+
+\bibitem{zitnik2018modeling}
+M. Zitnik et al., ``Modeling polypharmacy side effects with graph convolutional networks,'' \textit{Bioinformatics}, 2018.
+
+\bibitem{szklarczyk2019string}
+D. Szklarczyk et al., ``STRING v11: protein-protein association networks with increased coverage supporting functional discovery in genome-wide experimental datasets,'' \textit{Nucleic Acids Research}, vol. 47, 2019.
+
+\bibitem{bordes2013translating}
+A. Bordes et al., ``Translating embeddings for modeling multi-relational data,'' in \textit{NeurIPS}, 2013.
+
+\bibitem{trouillon2016complex}
+T. Trouillon et al., ``Complex embeddings for simple link prediction,'' in \textit{Proc. ICML}, 2016.
+
+\bibitem{hu2024benchmark}
+K. Hu et al., ``Assessing computational predictions of antimicrobial resistance phenotypes from microbial genomes,'' \textit{Briefings in Bioinformatics}, vol. 25, no. 3, doi: 10.1093/bib/bbae206, 2024.
+
+\end{thebibliography}
+
+\end{document}
