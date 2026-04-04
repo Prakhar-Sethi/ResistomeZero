@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Data — raw CARD download (~54MB; regenerate via: python utils/download_card.py)
+data/raw/
+
+# Precomputed graph binaries and feature tensors (regenerate via utils/)
+data/processed/
+data/graphs/*.pt
+data/features/*.pt
+
+# PyTorch model checkpoints
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+
+# Experiment Tracking
+wandb/
+.wandb/
+runs/
+
+# Runtime logs
+experiments/training_log.txt
+experiments/training_output.txt
+results/ranking_run.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+paper/*.fdb_latexmk
+paper/*.fls
+*.pdf
+
+# Internal / draft files
+LATEX_ERRORS_EXPLAINED.md
+VERIFICATION_REPORT.md
+RESOURCES.md
+midterm_report/
+paper_upload/
