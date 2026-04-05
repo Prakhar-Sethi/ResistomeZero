@@ -3,547 +3,660 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ResistomeZero — Zero-Shot Antibiotic Resistance Prediction</title>
+<title>ResistomeZero — Zero-Shot AMR Prediction</title>
 <style>
+/* ─── DESIGN TOKENS ─────────────────────────────────────── */
 :root {
-  --bg:      #040c18;
-  --bg2:     #071428;
-  --bg3:     #0c1e3a;
-  --cyan:    #00d4ff;
-  --purple:  #8b5cf6;
-  --amber:   #f59e0b;
-  --emerald: #10b981;
-  --rose:    #f43f5e;
-  --blue:    #3b82f6;
-  --teal:    #06b6d4;
-  --violet:  #a78bfa;
-  --text:    #e2e8f0;
-  --muted:   #64748b;
-  --border:  #1a3050;
-  --card:    rgba(8,20,45,0.75);
+  --bg:     #06100a;
+  --bg1:    #0d1a10;
+  --bg2:    #122014;
+  --bg3:    #1a2e1e;
+  --border: #1e3323;
+
+  --green:  #3d9e52;
+  --glit:   #52cc6a;
+  --gdark:  #1a4022;
+
+  --gold:   #c8943a;
+  --golt:   #e0aa4a;
+
+  --cream:  #eae6d8;
+  --t2:     #8fa88a;
+  --t3:     #4a6350;
+
+  --rose:   #cc4444;
 }
 
-*{margin:0;padding:0;box-sizing:border-box;}
-html{scroll-behavior:smooth;}
-body{
+/* ─── RESET ─────────────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
   background:var(--bg);
-  color:var(--text);
-  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  color:var(--cream);
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:16px;
+  line-height:1.7;
   overflow-x:hidden;
-  line-height:1.65;
 }
+img { display:block; max-width:100%; }
+a { color:inherit; text-decoration:none; }
 
-/* NAV */
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:200;
-  padding:1rem 2.5rem;
-  display:flex;align-items:center;justify-content:space-between;
-  transition:background .3s,backdrop-filter .3s,border-color .3s;
+/* ─── TYPOGRAPHY SCALE ───────────────────────────────────── */
+.label {
+  font-size:.72rem;
+  font-weight:600;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--green);
+}
+.display {
+  font-size:clamp(3.5rem,8vw,7rem);
+  font-weight:900;
+  letter-spacing:-.04em;
+  line-height:.95;
+}
+.display em { font-style:normal; color:var(--gold); }
+.title {
+  font-size:clamp(1.8rem,3.5vw,2.75rem);
+  font-weight:800;
+  letter-spacing:-.025em;
+  line-height:1.15;
+}
+.title em { font-style:normal; color:var(--gold); }
+.body-lg { font-size:1.1rem; color:var(--t2); line-height:1.75; }
+.body-sm { font-size:.875rem; color:var(--t2); line-height:1.65; }
+
+/* ─── NAV ────────────────────────────────────────────────── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  padding:1.1rem 2.5rem;
+  display:flex; align-items:center; justify-content:space-between;
+  transition:background .3s,border-color .3s;
   border-bottom:1px solid transparent;
 }
-nav.scrolled{
-  background:rgba(4,12,24,.88);
-  backdrop-filter:blur(20px);
+nav.on {
+  background:rgba(6,16,10,.92);
+  backdrop-filter:blur(18px);
   border-color:var(--border);
 }
-.nav-logo{
-  font-size:1.15rem;font-weight:800;letter-spacing:-.02em;
-  background:linear-gradient(135deg,var(--cyan),var(--purple));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+.nav-brand {
+  font-size:1rem; font-weight:700; letter-spacing:-.01em; color:var(--cream);
 }
-.nav-links{display:flex;gap:2rem;list-style:none;}
-.nav-links a{color:var(--muted);text-decoration:none;font-size:.85rem;transition:color .2s;}
-.nav-links a:hover{color:var(--text);}
-@media(max-width:640px){.nav-links{display:none;}}
+.nav-brand span { color:var(--gold); }
+.nav-links { display:flex; gap:2rem; list-style:none; }
+.nav-links a { font-size:.83rem; color:var(--t3); transition:color .15s; }
+.nav-links a:hover { color:var(--cream); }
+@media(max-width:640px){ .nav-links{ display:none; } }
 
-/* HERO */
-#hero{
-  position:relative;height:100vh;min-height:600px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;overflow:hidden;
+/* ─── HERO ───────────────────────────────────────────────── */
+#hero {
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+  gap:3rem;
+  padding:7rem 6vw 5rem;
+  position:relative;
+  overflow:hidden;
 }
-#hero-canvas{position:absolute;inset:0;z-index:0;}
-.hero-content{position:relative;z-index:1;max-width:920px;padding:0 2rem;}
+@media(max-width:800px){
+  #hero{ grid-template-columns:1fr; padding:7rem 5vw 4rem; }
+  #hero-right{ display:none; }
+}
+.hero-left { position:relative; z-index:1; }
+.hero-kicker {
+  display:inline-flex; align-items:center; gap:.6rem;
+  background:var(--gdark); border:1px solid var(--border);
+  border-radius:2rem; padding:.4rem 1rem;
+  font-size:.72rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--green); margin-bottom:2rem;
+}
+.hero-kicker::before {
+  content:''; width:6px; height:6px; border-radius:50%;
+  background:var(--green); flex-shrink:0;
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%{ opacity:.4; transform:scale(.7); }
+}
+.hero-title { margin-bottom:1.5rem; }
+.hero-desc { max-width:440px; margin-bottom:2.5rem; }
+.hero-q {
+  font-size:1.05rem; font-style:italic; color:var(--t2);
+  border-left:2px solid var(--gold); padding-left:1rem;
+  margin-bottom:3rem; max-width:400px;
+}
+.hero-stats {
+  display:flex; gap:2.5rem; flex-wrap:wrap;
+  border-top:1px solid var(--border); padding-top:2rem;
+}
+.hs-num {
+  font-size:1.8rem; font-weight:800; color:var(--cream);
+  font-variant-numeric:tabular-nums; line-height:1;
+}
+.hs-lbl { font-size:.72rem; color:var(--t3); text-transform:uppercase; letter-spacing:.1em; margin-top:.3rem; }
 
-.pill{
-  display:inline-block;
-  background:rgba(0,212,255,.08);
-  border:1px solid rgba(0,212,255,.25);
-  color:var(--cyan);font-size:.72rem;font-weight:700;
-  letter-spacing:.16em;text-transform:uppercase;
-  padding:.4rem 1.1rem;border-radius:2rem;margin-bottom:1.75rem;
+/* hero right — network canvas */
+#hero-right {
+  position:relative; z-index:1;
+  display:flex; align-items:center; justify-content:center;
 }
-.hero-title{
-  font-size:clamp(3.5rem,9vw,7.5rem);font-weight:900;letter-spacing:-.03em;line-height:1;
-  background:linear-gradient(150deg,#fff 20%,var(--cyan) 55%,var(--purple) 90%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  margin-bottom:1.5rem;
-}
-.hero-sub{
-  font-size:clamp(.95rem,2.2vw,1.25rem);color:var(--muted);
-  max-width:640px;margin:0 auto 1.25rem;
-}
-.hero-q{
-  font-size:clamp(1rem,1.8vw,1.3rem);font-style:italic;
-  color:rgba(226,232,240,.75);margin-bottom:3rem;
-}
-.hero-stats{
-  display:flex;gap:clamp(1.5rem,4vw,3.5rem);justify-content:center;flex-wrap:wrap;
-}
-.hs{text-align:center;}
-.hs-num{
-  font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;
-  color:var(--cyan);font-variant-numeric:tabular-nums;
-}
-.hs-lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem;}
-
-.scroll-hint{
-  position:absolute;bottom:2.5rem;left:50%;transform:translateX(-50%);
-  z-index:1;display:flex;flex-direction:column;align-items:center;gap:.5rem;
-  color:var(--muted);font-size:.68rem;letter-spacing:.15em;
-  animation:bob 2.4s ease-in-out infinite;
-}
-.scroll-hint svg{opacity:.4;}
-@keyframes bob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(8px);}}
-
-/* SECTIONS */
-.section{padding:7rem 2rem;max-width:1120px;margin:0 auto;}
-.slabel{
-  font-size:.7rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--cyan);margin-bottom:.75rem;
-}
-.stitle{
-  font-size:clamp(1.9rem,4vw,3rem);font-weight:800;letter-spacing:-.025em;line-height:1.15;
-  margin-bottom:1.25rem;
-}
-.stitle em{
-  font-style:normal;
-  background:linear-gradient(135deg,var(--cyan),var(--purple));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-.sdesc{color:var(--muted);font-size:1.05rem;max-width:680px;margin-bottom:3rem;}
-.glow-bar{
-  width:48px;height:3px;border-radius:2px;
-  background:linear-gradient(90deg,var(--cyan),var(--purple));
-  margin-bottom:2rem;
+#network-canvas {
+  width:100%; max-width:520px; height:480px;
+  border-radius:1rem;
+  border:1px solid var(--border);
+  background:var(--bg1);
 }
 
-/* DIVIDER */
-.divider{
-  height:1px;
+/* ─── SECTION WRAPPER ────────────────────────────────────── */
+.wrap { max-width:1080px; margin:0 auto; padding:0 5vw; }
+.section { padding:6rem 0; }
+
+/* ─── DIVIDER ────────────────────────────────────────────── */
+hr.divider {
+  border:none; height:1px;
   background:linear-gradient(90deg,transparent,var(--border),transparent);
-  max-width:1120px;margin:0 auto;
+  margin:0 5vw;
 }
 
-/* CARDS */
-.card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:1.1rem;padding:1.85rem;
-  backdrop-filter:blur(12px);
-  transition:border-color .3s,transform .3s,box-shadow .3s;
-}
-.card:hover{border-color:var(--cyan);transform:translateY(-3px);box-shadow:0 8px 40px rgba(0,212,255,.09);}
-
-/* CRISIS */
-.crisis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;margin-bottom:2.5rem;}
-.crisis-card{
-  border-radius:1.1rem;padding:2rem;text-align:center;
-  border:1px solid var(--border);background:var(--card);
-  position:relative;overflow:hidden;
-}
-.crisis-card::after{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-}
-.cc-red::after{background:var(--rose);}
-.cc-amber::after{background:var(--amber);}
-.cc-purple::after{background:var(--purple);}
-.cc-cyan::after{background:var(--cyan);}
-.crisis-num{font-size:2.75rem;font-weight:900;margin-bottom:.4rem;}
-.cc-red .crisis-num{color:var(--rose);}
-.cc-amber .crisis-num{color:var(--amber);}
-.cc-purple .crisis-num{color:var(--purple);}
-.cc-cyan .crisis-num{color:var(--cyan);}
-.crisis-lbl{font-size:.82rem;color:var(--muted);line-height:1.45;}
-
-/* APPROACH */
-.approach-row{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:2rem;}
-@media(max-width:680px){.approach-row{grid-template-columns:1fr;}}
-.approach-card{border-radius:1.1rem;padding:2rem;}
-.ap-old{background:rgba(244,63,94,.04);border:1px solid rgba(244,63,94,.18);}
-.ap-new{background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.28);box-shadow:0 0 30px rgba(0,212,255,.05);}
-.ap-tag{
-  display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  padding:.3rem .8rem;border-radius:2rem;margin-bottom:1.1rem;
-}
-.ap-old .ap-tag{background:rgba(244,63,94,.12);color:var(--rose);}
-.ap-new .ap-tag{background:rgba(0,212,255,.12);color:var(--cyan);}
-.ap-title{font-size:1.15rem;font-weight:700;margin-bottom:.85rem;}
-.ap-list{list-style:none;display:flex;flex-direction:column;gap:.55rem;}
-.ap-list li{font-size:.88rem;color:var(--muted);padding-left:1.4rem;position:relative;}
-.ap-list li::before{position:absolute;left:0;font-weight:700;}
-.ap-old .ap-list li::before{content:'×';color:var(--rose);}
-.ap-new .ap-list li::before{content:'✓';color:var(--cyan);}
-
-/* GRAPH */
-#graph-canvas{
-  width:100%;height:420px;
-  border-radius:1.1rem;border:1px solid var(--border);
-  background:rgba(6,14,30,.9);cursor:crosshair;
-  display:block;
-}
-.graph-legend{
-  display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.25rem;justify-content:center;
-}
-.leg-item{
-  display:flex;align-items:center;gap:.5rem;font-size:.8rem;
-  cursor:pointer;padding:.35rem .85rem;border-radius:2rem;
-  border:1px solid transparent;transition:all .2s;user-select:none;
-}
-.leg-item:hover,.leg-item.active{border-color:currentColor;background:rgba(255,255,255,.04);}
-.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
-
-/* ZERO SHOT */
-.zs-box{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:1.1rem;padding:2.25rem;margin-top:2rem;
-}
-.split-bar{display:flex;height:3.25rem;border-radius:.6rem;overflow:hidden;margin-bottom:1.75rem;}
-.sb-seg{
-  display:flex;align-items:center;justify-content:center;
-  font-size:.78rem;font-weight:700;color:#fff;
-  transition:flex .5s ease;
-}
-.sb-train{flex:161;background:linear-gradient(135deg,#10b981,#059669);}
-.sb-val  {flex:23; background:linear-gradient(135deg,#f59e0b,#d97706);}
-.sb-test {flex:47; background:linear-gradient(135deg,#8b5cf6,#7c3aed);}
-.split-labels{display:flex;gap:2rem;flex-wrap:wrap;}
-.sl-item{display:flex;align-items:flex-start;gap:.75rem;}
-.sl-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:.35rem;}
-.sl-text strong{display:block;font-size:1rem;font-weight:700;}
-.sl-text span{font-size:.8rem;color:var(--muted);}
-.zs-note{
-  margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);
-  font-size:.88rem;color:var(--muted);line-height:1.55;
-}
-
-/* MODELS */
-.model-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.25rem;margin-top:2rem;}
-.mc{border-radius:1.1rem;padding:1.85rem;border:1px solid var(--border);background:var(--card);transition:all .3s;}
-.mc:hover{transform:translateY(-4px);}
-.mc.mc-win{border-color:rgba(0,212,255,.35);background:rgba(0,212,255,.04);box-shadow:0 0 35px rgba(0,212,255,.07);}
-.mc.mc-fail{border-color:rgba(244,63,94,.18);background:rgba(244,63,94,.02);}
-.mc-tag{font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-bottom:.65rem;}
-.mc-name{font-size:1.1rem;font-weight:700;margin-bottom:.35rem;}
-.mc-sub{font-size:.82rem;color:var(--muted);margin-bottom:1.1rem;}
-.mc-mrr{display:flex;align-items:baseline;gap:.45rem;}
-.mc-mrr-val{font-size:1.85rem;font-weight:900;}
-.mc-mrr-lbl{font-size:.78rem;color:var(--muted);}
-
-/* RESULTS */
-.chart-box{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:1.1rem;padding:2rem;margin-top:2rem;
-}
-.chart-title{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1.5rem;}
-.bar-chart{display:flex;flex-direction:column;gap:.85rem;}
-.bar-row{display:grid;grid-template-columns:170px 1fr 75px;align-items:center;gap:1rem;}
-@media(max-width:600px){.bar-row{grid-template-columns:120px 1fr 55px;gap:.5rem;}}
-.bar-lbl{font-size:.82rem;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bar-track{
-  height:30px;border-radius:4px;
-  background:rgba(255,255,255,.04);overflow:hidden;position:relative;
-}
-.bar-fill{
-  height:100%;border-radius:4px;width:0;
-  transition:width 1.1s cubic-bezier(.4,0,.2,1);
-  display:flex;align-items:center;padding-left:.65rem;
-  font-size:.72rem;font-weight:700;color:rgba(255,255,255,.85);
-}
-.bar-val{font-size:.82rem;font-weight:700;}
-
-/* RESULTS TABLE */
-.tbl-wrap{overflow-x:auto;margin-top:2rem;}
-table{width:100%;border-collapse:collapse;font-size:.86rem;}
-th{
-  text-align:left;padding:.75rem 1rem;
-  color:var(--muted);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
+/* ─── CRISIS BAND ────────────────────────────────────────── */
+#crisis {
+  background:var(--bg1);
+  border-top:1px solid var(--border);
   border-bottom:1px solid var(--border);
+  padding:5rem 5vw;
 }
-td{padding:.9rem 1rem;border-bottom:1px solid rgba(26,48,80,.45);}
-tr:last-child td{border-bottom:none;}
-tr.tr-win td{color:var(--cyan);font-weight:600;}
-tr.tr-heur td{color:var(--amber);}
-tr.tr-fail td{color:var(--muted);}
-tr.tr-fail td:first-child{color:var(--text);}
-.badge{
-  display:inline-block;font-size:.62rem;padding:.18rem .5rem;
-  border-radius:.3rem;margin-left:.4rem;font-weight:700;vertical-align:middle;
+.crisis-inner { max-width:1080px; margin:0 auto; }
+.crisis-row {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:3rem; margin-top:3rem;
 }
-.b-win{background:rgba(0,212,255,.13);color:var(--cyan);}
-.b-fail{background:rgba(244,63,94,.1);color:var(--rose);}
-.b-heur{background:rgba(245,158,11,.12);color:var(--amber);}
-
-/* INSIGHTS */
-.insight-row{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-  gap:1.25rem;margin-top:2.5rem;
+.crisis-item { }
+.crisis-num {
+  font-size:clamp(2.5rem,5vw,4rem);
+  font-weight:900; line-height:1;
+  color:var(--gold); margin-bottom:.5rem;
 }
-.ins{background:var(--card);border:1px solid var(--border);border-radius:1.1rem;padding:1.75rem;}
-.ins-num{font-size:2.75rem;font-weight:900;color:var(--cyan);margin-bottom:.4rem;}
-.ins-title{font-size:1rem;font-weight:700;margin-bottom:.4rem;}
-.ins-desc{font-size:.84rem;color:var(--muted);line-height:1.55;}
+.crisis-txt { font-size:.9rem; color:var(--t2); line-height:1.5; }
 
-/* FINDINGS */
-.findings{display:flex;flex-direction:column;gap:1.25rem;margin-top:2rem;}
-.finding{
-  display:grid;grid-template-columns:72px 1fr;gap:1.5rem;align-items:start;
-  background:var(--card);border:1px solid var(--border);
-  border-radius:1.1rem;padding:2rem;transition:all .3s;
+/* ─── APPROACH ───────────────────────────────────────────── */
+.approach-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;
+  margin-top:2.5rem;
 }
-.finding:hover{border-color:var(--cyan);box-shadow:0 4px 30px rgba(0,212,255,.07);}
-.f-num{font-size:3rem;font-weight:900;color:var(--cyan);opacity:.25;line-height:1;}
-.f-title{font-size:1.08rem;font-weight:700;margin-bottom:.45rem;}
-.f-desc{font-size:.88rem;color:var(--muted);line-height:1.6;}
-
-/* ABLATION */
-.abl-box{background:var(--card);border:1px solid var(--border);border-radius:1.1rem;padding:2rem;margin-top:2rem;overflow-x:auto;}
-.abl-table{width:100%;border-collapse:collapse;font-size:.88rem;}
-.abl-table th{text-align:left;padding:.7rem 1rem;color:var(--muted);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border);}
-.abl-table td{padding:.85rem 1rem;border-bottom:1px solid rgba(26,48,80,.4);}
-.abl-table tr:last-child td{border-bottom:none;}
-.abl-table tr.hl{background:rgba(0,212,255,.04);}
-.d-pos{color:var(--emerald);font-weight:700;}
-.d-neg{color:var(--rose);}
-.d-zero{color:var(--muted);}
-
-/* TECH */
-.tech-pills{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:2rem;}
-.tpill{
-  background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.22);
-  color:var(--violet);font-size:.78rem;font-weight:600;
-  padding:.38rem 1rem;border-radius:2rem;
-  transition:all .2s;cursor:default;
+@media(max-width:680px){ .approach-grid{ grid-template-columns:1fr; } }
+.ap-card {
+  border-radius:.75rem; padding:2rem;
+  border:1px solid var(--border);
 }
-.tpill:hover{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);}
+.ap-old { background:rgba(204,68,68,.03); border-color:rgba(204,68,68,.15); }
+.ap-new { background:rgba(61,158,82,.03); border-color:rgba(61,158,82,.2); }
+.ap-tag {
+  font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  padding:.3rem .8rem; border-radius:2rem;
+  display:inline-block; margin-bottom:1rem;
+}
+.ap-old .ap-tag { background:rgba(204,68,68,.1); color:var(--rose); }
+.ap-new .ap-tag { background:rgba(61,158,82,.1); color:var(--green); }
+.ap-title { font-size:1.05rem; font-weight:700; margin-bottom:.85rem; }
+.ap-list { list-style:none; display:flex; flex-direction:column; gap:.5rem; }
+.ap-list li { font-size:.88rem; color:var(--t2); padding-left:1.4rem; position:relative; }
+.ap-list li::before { position:absolute; left:0; font-weight:700; }
+.ap-old .ap-list li::before { content:'×'; color:var(--rose); }
+.ap-new .ap-list li::before { content:'✓'; color:var(--green); }
 
-/* CTA */
-.cta-wrap{
-  text-align:center;padding:7rem 2rem;
+/* ─── GRAPH SECTION ──────────────────────────────────────── */
+#graph-canvas {
+  width:100%; height:400px;
+  border:1px solid var(--border);
+  border-radius:.75rem;
+  background:var(--bg1);
+  display:block; margin-top:2rem; cursor:crosshair;
+}
+.legend {
+  display:flex; flex-wrap:wrap; gap:.65rem;
+  margin-top:1.25rem; justify-content:center;
+}
+.leg {
+  display:flex; align-items:center; gap:.45rem;
+  font-size:.78rem; color:var(--t2);
+  cursor:pointer; padding:.3rem .75rem;
+  border-radius:2rem; border:1px solid transparent;
+  transition:border-color .15s, color .15s, background .15s;
+  user-select:none;
+}
+.leg:hover,.leg.on { border-color:var(--border); background:var(--bg2); color:var(--cream); }
+.leg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ─── ZERO SHOT VISUAL ───────────────────────────────────── */
+.zs-box {
+  margin-top:2.5rem;
+  border:1px solid var(--border);
+  border-radius:.75rem; overflow:hidden;
+}
+.split-bar { display:flex; height:3rem; }
+.sb { display:flex; align-items:center; justify-content:center; font-size:.78rem; font-weight:700; color:#fff; }
+.sb-tr { flex:161; background:var(--green); }
+.sb-va { flex:23;  background:var(--gold); }
+.sb-te { flex:47;  background:#7c5cbf; }
+.zs-details {
+  padding:2rem; display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1.5rem; background:var(--bg1);
+}
+.zs-item {}
+.zs-item strong { display:block; font-size:1.1rem; font-weight:700; margin-bottom:.25rem; }
+.zs-item p { font-size:.83rem; color:var(--t2); }
+.zs-note {
+  padding:1.25rem 2rem;
   border-top:1px solid var(--border);
-  background:linear-gradient(180deg,transparent,rgba(0,212,255,.025));
+  font-size:.85rem; color:var(--t2); background:var(--bg2);
 }
-.cta-btn{
-  display:inline-flex;align-items:center;gap:.75rem;
-  background:linear-gradient(135deg,var(--cyan),var(--purple));
-  color:#fff;text-decoration:none;padding:1rem 2.5rem;border-radius:3rem;
-  font-weight:700;font-size:1rem;margin-top:2rem;
-  transition:all .3s;
-}
-.cta-btn:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,212,255,.28);}
+.zs-note strong { color:var(--cream); }
 
-/* FOOTER */
-footer{
-  text-align:center;padding:1.75rem;
-  color:var(--muted);font-size:.78rem;
+/* ─── MODELS ─────────────────────────────────────────────── */
+.model-layout {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:3rem; margin-top:2.5rem; align-items:start;
+}
+@media(max-width:700px){ .model-layout{ grid-template-columns:1fr; } }
+.model-list { display:flex; flex-direction:column; gap:1px; border:1px solid var(--border); border-radius:.75rem; overflow:hidden; }
+.model-row {
+  display:flex; align-items:flex-start; gap:1rem;
+  padding:1.1rem 1.25rem;
+  background:var(--bg1);
+  border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.model-row:last-child{ border-bottom:none; }
+.model-row:hover{ background:var(--bg2); }
+.model-row.win { background:rgba(61,158,82,.05); }
+.model-row.fail { opacity:.7; }
+.mr-dot {
+  width:9px; height:9px; border-radius:50%;
+  flex-shrink:0; margin-top:.45rem;
+}
+.mr-name { font-size:.9rem; font-weight:600; }
+.mr-sub  { font-size:.78rem; color:var(--t3); margin-top:.15rem; }
+.model-insight {
+  border:1px solid var(--border); border-radius:.75rem;
+  padding:2rem; background:var(--bg1);
+}
+.insight-big { font-size:4rem; font-weight:900; color:var(--gold); line-height:1; margin-bottom:.5rem; }
+.insight-title { font-size:1.05rem; font-weight:700; margin-bottom:.5rem; }
+.insight-desc { font-size:.88rem; color:var(--t2); line-height:1.6; }
+
+/* ─── RESULTS ────────────────────────────────────────────── */
+.chart-section {
+  background:var(--bg1);
+  border:1px solid var(--border);
+  border-radius:.75rem;
+  padding:2rem; margin-top:2rem;
+}
+.chart-lbl { font-size:.72rem; color:var(--t3); text-transform:uppercase; letter-spacing:.1em; margin-bottom:1.5rem; }
+.barchart { display:flex; flex-direction:column; gap:.7rem; }
+.brow {
+  display:grid;
+  grid-template-columns:160px 1fr 70px;
+  align-items:center; gap:.9rem;
+}
+@media(max-width:600px){ .brow{ grid-template-columns:110px 1fr 55px; gap:.5rem; } }
+.blbl { font-size:.8rem; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btrack {
+  height:26px; background:var(--bg3);
+  border-radius:3px; overflow:hidden;
+}
+.bfill {
+  height:100%; width:0; border-radius:3px;
+  display:flex; align-items:center; padding-left:.5rem;
+  font-size:.7rem; font-weight:700; color:rgba(255,255,255,.85);
+  transition:width 1.1s cubic-bezier(.4,0,.2,1);
+}
+.bval { font-size:.8rem; font-weight:700; }
+
+/* results table */
+.tbl-wrap { overflow-x:auto; margin-top:2rem; border:1px solid var(--border); border-radius:.75rem; }
+table { width:100%; border-collapse:collapse; font-size:.85rem; }
+th {
+  text-align:left; padding:.8rem 1.1rem;
+  font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--t3); border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+td { padding:.9rem 1.1rem; border-bottom:1px solid var(--border); }
+tr:last-child td { border-bottom:none; }
+tr.tr-win td { color:var(--green); font-weight:600; }
+tr.tr-heur td { color:var(--gold); }
+tr.tr-fail td { color:var(--t3); }
+tr.tr-fail td:first-child { color:var(--t2); }
+.badge {
+  display:inline-block; font-size:.6rem; padding:.15rem .45rem;
+  border-radius:.25rem; margin-left:.4rem; font-weight:700;
+  vertical-align:middle;
+}
+.bwin { background:rgba(61,158,82,.12); color:var(--green); }
+.bfail{ background:rgba(204,68,68,.08); color:var(--rose); }
+.bheur{ background:rgba(200,148,58,.1); color:var(--gold); }
+
+/* ─── FINDINGS ───────────────────────────────────────────── */
+.findings { display:flex; flex-direction:column; gap:0; border:1px solid var(--border); border-radius:.75rem; overflow:hidden; margin-top:2.5rem; }
+.finding {
+  display:grid;
+  grid-template-columns:64px 1fr;
+  gap:1.5rem;
+  padding:2rem 1.75rem;
+  border-bottom:1px solid var(--border);
+  background:var(--bg1);
+  transition:background .15s;
+}
+.finding:last-child { border-bottom:none; }
+.finding:hover { background:var(--bg2); }
+.fn { font-size:2.5rem; font-weight:900; color:var(--border); line-height:1; }
+.ft { font-size:.95rem; font-weight:700; margin-bottom:.4rem; }
+.fd { font-size:.875rem; color:var(--t2); line-height:1.65; }
+
+/* ─── ABLATION ───────────────────────────────────────────── */
+.abl-tbl { font-size:.88rem; }
+.abl-tbl td:last-child { font-weight:700; }
+.d-pos { color:var(--green); }
+.d-neg { color:var(--rose); }
+.d-zero { color:var(--t3); }
+.abl-hl td { background:rgba(61,158,82,.04); color:var(--cream); }
+
+/* ─── CTA ────────────────────────────────────────────────── */
+#cta {
+  background:var(--bg1);
+  border-top:1px solid var(--border);
+  padding:6rem 5vw; text-align:center;
+}
+.cta-inner { max-width:560px; margin:0 auto; }
+.cta-btn {
+  display:inline-flex; align-items:center; gap:.65rem;
+  background:var(--green); color:#fff;
+  padding:.85rem 2.25rem; border-radius:.4rem;
+  font-size:.9rem; font-weight:700; margin-top:2rem;
+  transition:background .15s;
+}
+.cta-btn:hover { background:var(--glit); }
+.cta-btn svg { width:18px; height:18px; }
+
+/* ─── FOOTER ─────────────────────────────────────────────── */
+footer {
+  text-align:center; padding:1.5rem;
+  font-size:.75rem; color:var(--t3);
   border-top:1px solid var(--border);
 }
 
-/* ANIMATIONS */
-.fade-up{opacity:0;transform:translateY(28px);transition:opacity .75s ease,transform .75s ease;}
-.fade-up.in{opacity:1;transform:translateY(0);}
-.d1{transition-delay:.1s;}.d2{transition-delay:.2s;}.d3{transition-delay:.3s;}.d4{transition-delay:.4s;}
+/* ─── TECH PILLS ─────────────────────────────────────────── */
+.pills { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.75rem; }
+.pill {
+  font-size:.78rem; color:var(--t2);
+  border:1px solid var(--border);
+  padding:.3rem .85rem; border-radius:2rem;
+  transition:border-color .15s, color .15s;
+}
+.pill:hover { border-color:var(--green); color:var(--cream); }
+
+/* ─── ANIMATION ──────────────────────────────────────────── */
+.reveal { opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .7s ease; }
+.reveal.in { opacity:1; transform:none; }
+.d1{transition-delay:.08s;} .d2{transition-delay:.16s;} .d3{transition-delay:.24s;} .d4{transition-delay:.32s;}
 </style>
 </head>
 <body>
 
 <!-- NAV -->
 <nav id="nav">
-  <div class="nav-logo">ResistomeZero</div>
+  <div class="nav-brand">Resistome<span>Zero</span></div>
   <ul class="nav-links">
-    <li><a href="#problem">Problem</a></li>
-    <li><a href="#graph">Graph</a></li>
-    <li><a href="#models">Models</a></li>
-    <li><a href="#results">Results</a></li>
-    <li><a href="#findings">Findings</a></li>
-    <li><a href="https://github.com/Prakhar-Sethi/ResistomeZero" target="_blank">GitHub ↗</a></li>
+    <li><a href="#crisis">Problem</a></li>
+    <li><a href="#graph-section">Graph</a></li>
+    <li><a href="#models-section">Models</a></li>
+    <li><a href="#results-section">Results</a></li>
+    <li><a href="https://github.com/Prakhar-Sethi/ResistomeZero" target="_blank">GitHub</a></li>
   </ul>
 </nav>
 
 <!-- HERO -->
 <section id="hero">
-  <canvas id="hero-canvas"></canvas>
-  <div class="hero-content">
-    <div class="pill">Graph Neural Networks &nbsp;·&nbsp; AMR &nbsp;·&nbsp; Zero-Shot Learning</div>
-    <h1 class="hero-title">Resistome<br>Zero</h1>
-    <p class="hero-sub">Zero-Shot Antibiotic Resistance Prediction via Heterogeneous Graph Neural Networks</p>
-    <p class="hero-q">"Can a model predict resistance to antibiotics it has never seen?"</p>
+  <div class="hero-left">
+    <div class="hero-kicker">Zero-Shot AMR Prediction</div>
+    <h1 class="display hero-title">
+      Resistome<br><em>Zero</em>
+    </h1>
+    <p class="body-lg hero-desc">
+      Zero-shot antibiotic resistance prediction via heterogeneous graph neural networks. 9,135 nodes. 53,600 edges. One question.
+    </p>
+    <p class="hero-q">
+      Can a model predict resistance to antibiotics it has never seen?
+    </p>
     <div class="hero-stats">
-      <div class="hs"><div class="hs-num" data-count="9135">0</div><div class="hs-lbl">Graph Nodes</div></div>
-      <div class="hs"><div class="hs-num" data-count="53600">0</div><div class="hs-lbl">Directed Edges</div></div>
-      <div class="hs"><div class="hs-num" data-count="231">0</div><div class="hs-lbl">Antibiotics</div></div>
-      <div class="hs"><div class="hs-num" data-count="9">0</div><div class="hs-lbl">Edge Types</div></div>
+      <div class="hs">
+        <div class="hs-num" data-count="9135">0</div>
+        <div class="hs-lbl">Graph Nodes</div>
+      </div>
+      <div class="hs">
+        <div class="hs-num" data-count="53600">0</div>
+        <div class="hs-lbl">Directed Edges</div>
+      </div>
+      <div class="hs">
+        <div class="hs-num" data-count="231">0</div>
+        <div class="hs-lbl">Antibiotics</div>
+      </div>
+      <div class="hs">
+        <div class="hs-num" data-count="9">0</div>
+        <div class="hs-lbl">Edge Types</div>
+      </div>
     </div>
   </div>
-  <div class="scroll-hint">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-    SCROLL
+  <div id="hero-right">
+    <canvas id="network-canvas"></canvas>
   </div>
 </section>
 
 <!-- CRISIS -->
-<div class="divider"></div>
-<div class="section" id="problem">
-  <div class="slabel">The Crisis</div>
-  <h2 class="stitle">Antibiotic resistance is a <em>global emergency</em></h2>
-  <p class="sdesc">Bacteria evolve faster than we develop new drugs. Predicting resistance computationally — before costly lab experiments — is no longer optional.</p>
-  <div class="crisis-grid">
-    <div class="crisis-card cc-red fade-up">
-      <div class="crisis-num" data-count="700000">0</div>
-      <div class="crisis-lbl">deaths per year from resistant infections today</div>
-    </div>
-    <div class="crisis-card cc-amber fade-up d1">
-      <div class="crisis-num">10M</div>
-      <div class="crisis-lbl">projected deaths per year by 2050 — surpassing cancer</div>
-    </div>
-    <div class="crisis-card cc-purple fade-up d2">
-      <div class="crisis-num">$1B+</div>
-      <div class="crisis-lbl">cost and 10–15 years to develop one new antibiotic</div>
-    </div>
-    <div class="crisis-card cc-cyan fade-up d3">
-      <div class="crisis-num">0</div>
-      <div class="crisis-lbl">prior papers predicting resistance for never-before-seen antibiotics</div>
+<section id="crisis">
+  <div class="crisis-inner">
+    <div class="label reveal">The Crisis</div>
+    <h2 class="title reveal" style="margin-top:.75rem;max-width:600px">
+      Antibiotic resistance will kill <em>10 million</em> people a year by 2050
+    </h2>
+    <div class="crisis-row">
+      <div class="crisis-item reveal">
+        <div class="crisis-num" data-count="700000">0</div>
+        <div class="crisis-txt">deaths per year from resistant infections today</div>
+      </div>
+      <div class="crisis-item reveal d1">
+        <div class="crisis-num">10M</div>
+        <div class="crisis-txt">projected by 2050 — surpassing cancer as a cause of death</div>
+      </div>
+      <div class="crisis-item reveal d2">
+        <div class="crisis-num">$1B+</div>
+        <div class="crisis-txt">and 10–15 years to bring one new antibiotic to market</div>
+      </div>
+      <div class="crisis-item reveal d3">
+        <div class="crisis-num">0</div>
+        <div class="crisis-txt">prior papers testing resistance prediction for never-before-seen antibiotics</div>
+      </div>
     </div>
   </div>
-  <div class="approach-row">
-    <div class="approach-card ap-old fade-up">
+</section>
+
+<!-- THE GAP -->
+<hr class="divider">
+<div class="wrap section" id="gap-section">
+  <div class="label reveal">The Gap</div>
+  <h2 class="title reveal" style="margin-top:.75rem">Every prior paper tests on antibiotics <em>seen during training</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:600px">That's not drug discovery. A novel compound has zero historical resistance data. We define the first zero-shot benchmark — 47 test antibiotics with absolutely no resistance edges in training.</p>
+  <div class="approach-grid reveal" style="margin-top:2.5rem">
+    <div class="ap-card ap-old">
       <div class="ap-tag">Every Prior Paper</div>
       <div class="ap-title">Transductive Setting</div>
       <ul class="ap-list">
-        <li>Test antibiotics seen during training</li>
+        <li>Test antibiotics appear in training edges</li>
         <li>Model looks up learned embeddings at test time</li>
-        <li>Cannot handle truly novel compounds</li>
-        <li>Metrics are inflated — not real generalization</li>
+        <li>Cannot predict for novel compounds</li>
+        <li>AUC inflated by easy negatives — not real generalization</li>
       </ul>
     </div>
-    <div class="approach-card ap-new fade-up d1">
+    <div class="ap-card ap-new">
       <div class="ap-tag">Our Work</div>
       <div class="ap-title">Zero-Shot Setting</div>
       <ul class="ap-list">
-        <li>47 test antibiotics with zero resistance training edges</li>
-        <li>Model must reason from graph structure alone</li>
+        <li>47 test antibiotics — zero resistance training edges</li>
+        <li>Model reasons from graph structure alone</li>
         <li>Directly mirrors novel drug discovery</li>
-        <li>Honest evaluation: hard negatives + filtered MRR</li>
+        <li>Filtered MRR over all 231 antibiotics — honest evaluation</li>
       </ul>
     </div>
   </div>
 </div>
 
-<!-- GRAPH -->
-<div class="divider"></div>
-<div class="section" id="graph">
-  <div class="slabel">The Knowledge Graph</div>
-  <h2 class="stitle">A heterogeneous graph from <em>5 biological databases</em></h2>
-  <p class="sdesc">CARD · Gene Ontology · KEGG Pathways · STRING PPI · ChEMBL — unified into a single typed graph. Click a node type in the legend to highlight it.</p>
-  <canvas id="graph-canvas"></canvas>
-  <div class="graph-legend" id="legend">
-    <div class="leg-item" data-type="gene"       style="color:#10b981"><div class="leg-dot" style="background:#10b981"></div>Genes (6,442)</div>
-    <div class="leg-item" data-type="antibiotic" style="color:#f59e0b"><div class="leg-dot" style="background:#f59e0b"></div>Antibiotics (231)</div>
-    <div class="leg-item" data-type="class"      style="color:#8b5cf6"><div class="leg-dot" style="background:#8b5cf6"></div>Drug Classes (46)</div>
-    <div class="leg-item" data-type="mechanism"  style="color:#f43f5e"><div class="leg-dot" style="background:#f43f5e"></div>Mechanisms (8)</div>
-    <div class="leg-item" data-type="family"     style="color:#3b82f6"><div class="leg-dot" style="background:#3b82f6"></div>Gene Families (522)</div>
-    <div class="leg-item" data-type="go"         style="color:#06b6d4"><div class="leg-dot" style="background:#06b6d4"></div>GO Terms (244)</div>
-    <div class="leg-item" data-type="kegg"       style="color:#a78bfa"><div class="leg-dot" style="background:#a78bfa"></div>KEGG Pathways (626)</div>
+<!-- KNOWLEDGE GRAPH -->
+<hr class="divider">
+<div class="wrap section" id="graph-section">
+  <div class="label reveal">The Knowledge Graph</div>
+  <h2 class="title reveal" style="margin-top:.75rem">Built from <em>5 biological databases</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:640px">CARD · UniProt Gene Ontology · KEGG Pathways · STRING PPI · ChEMBL drug targets — unified into a single heterogeneous graph. Click a node type to isolate it.</p>
+  <canvas id="graph-canvas" class="reveal"></canvas>
+  <div class="legend reveal">
+    <div class="leg" data-t="gene">       <div class="leg-dot" style="background:#3d9e52"></div>Genes (6,442)</div>
+    <div class="leg" data-t="antibiotic"> <div class="leg-dot" style="background:#c8943a"></div>Antibiotics (231)</div>
+    <div class="leg" data-t="class">      <div class="leg-dot" style="background:#7c5cbf"></div>Drug Classes (46)</div>
+    <div class="leg" data-t="mechanism">  <div class="leg-dot" style="background:#cc4444"></div>Mechanisms (8)</div>
+    <div class="leg" data-t="family">     <div class="leg-dot" style="background:#3a7aaa"></div>Gene Families (522)</div>
+    <div class="leg" data-t="go">         <div class="leg-dot" style="background:#2a9d8f"></div>GO Terms (244)</div>
+    <div class="leg" data-t="kegg">       <div class="leg-dot" style="background:#8a7ab0"></div>KEGG Pathways (626)</div>
   </div>
 </div>
 
 <!-- ZERO SHOT -->
-<div class="divider"></div>
-<div class="section" id="zeroshot">
-  <div class="slabel">Experimental Design</div>
-  <h2 class="stitle">The <em>zero-shot split</em></h2>
-  <p class="sdesc">231 antibiotics split into three groups. Test antibiotics exist as nodes — connected to drug classes and protein targets — but carry zero resistance signal during training.</p>
-  <div class="zs-box fade-up">
+<hr class="divider">
+<div class="wrap section" id="zeroshot-section">
+  <div class="label reveal">Experimental Design</div>
+  <h2 class="title reveal" style="margin-top:.75rem">The <em>zero-shot split</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:600px">231 antibiotics split into three groups. Test antibiotics exist as nodes — connected to drug classes and protein targets — but carry zero resistance signal during training.</p>
+  <div class="zs-box reveal">
     <div class="split-bar">
-      <div class="sb-seg sb-train">161 Train</div>
-      <div class="sb-seg sb-val">23 Val</div>
-      <div class="sb-seg sb-test">47 Test</div>
+      <div class="sb sb-tr">161 Train</div>
+      <div class="sb sb-va">23 Val</div>
+      <div class="sb sb-te">47 Test</div>
     </div>
-    <div class="split-labels">
-      <div class="sl-item">
-        <div class="sl-dot" style="background:#10b981;margin-top:.4rem"></div>
-        <div class="sl-text"><strong>161 Training Antibiotics</strong><span>All resistance edges visible · ~5,201 positive training pairs</span></div>
+    <div class="zs-details">
+      <div class="zs-item">
+        <strong style="color:var(--green)">161 Training Antibiotics</strong>
+        <p>All resistance edges visible. ~5,201 positive training pairs. Model learns from these.</p>
       </div>
-      <div class="sl-item">
-        <div class="sl-dot" style="background:#f59e0b;margin-top:.4rem"></div>
-        <div class="sl-text"><strong>23 Validation Antibiotics</strong><span>Zero resistance edges · used for early stopping only</span></div>
+      <div class="zs-item">
+        <strong style="color:var(--gold)">23 Validation Antibiotics</strong>
+        <p>Zero resistance edges. Used for early stopping only — aligned with zero-shot objective.</p>
       </div>
-      <div class="sl-item">
-        <div class="sl-dot" style="background:#8b5cf6;margin-top:.4rem"></div>
-        <div class="sl-text"><strong>47 Test Antibiotics</strong><span>Zero resistance edges · 1,042 final evaluation pairs</span></div>
+      <div class="zs-item">
+        <strong style="color:#9d80df">47 Test Antibiotics</strong>
+        <p>Zero resistance edges. 1,042 final evaluation pairs. The true zero-shot benchmark.</p>
       </div>
     </div>
     <div class="zs-note">
-      ⚡ Test antibiotics <strong style="color:var(--text)">still exist as nodes</strong> in the graph — connected to their drug class and protein targets — but carry <strong style="color:var(--rose)">zero resistance edges</strong>. The model must infer purely from structure.
+      Test antibiotics <strong>still exist as nodes</strong> in the graph — reachable via drug class and protein target edges — but have <strong style="color:var(--rose)">zero resistance signal</strong>. The model must infer purely from structure.
     </div>
   </div>
 </div>
 
 <!-- MODELS -->
-<div class="divider"></div>
-<div class="section" id="models">
-  <div class="slabel">Models Evaluated</div>
-  <h2 class="stitle">9 models across <em>4 categories</em></h2>
-  <p class="sdesc">From parameter-free heuristics to state-of-the-art heterogeneous transformers. Only one consistently solves the task.</p>
-  <div class="model-grid">
-    <div class="mc fade-up" style="border-color:rgba(245,158,11,.28);background:rgba(245,158,11,.03)">
-      <div class="mc-tag" style="color:var(--amber)">Non-Learning Baseline</div>
-      <div class="mc-name">DrugClass-Heuristic</div>
-      <div class="mc-sub">Zero parameters · Zero training · Pure domain knowledge</div>
-      <div class="mc-mrr"><div class="mc-mrr-val" style="color:var(--amber)">0.280</div><div class="mc-mrr-lbl">MRR · 65× random</div></div>
+<hr class="divider">
+<div class="wrap section" id="models-section">
+  <div class="label reveal">Models Evaluated</div>
+  <h2 class="title reveal" style="margin-top:.75rem">9 models. <em>One works.</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:580px">From zero-parameter heuristics to state-of-the-art heterogeneous graph transformers. Only R-GCN achieves statistically significant ranking across all seeds.</p>
+
+  <div class="model-layout">
+    <div class="model-list reveal">
+      <div class="model-row" style="background:rgba(200,148,58,.04);border-color:rgba(200,148,58,.2)">
+        <div class="mr-dot" style="background:var(--gold)"></div>
+        <div>
+          <div class="mr-name">DrugClass-Heuristic <span style="font-size:.7rem;color:var(--t3);font-weight:400">— no training</span></div>
+          <div class="mr-sub">MRR 0.280 · 65× random · domain knowledge only</div>
+        </div>
+      </div>
+      <div class="model-row win">
+        <div class="mr-dot" style="background:var(--green)"></div>
+        <div>
+          <div class="mr-name">R-GCN <span style="font-size:.7rem;color:var(--green);font-weight:600">★ best learned</span></div>
+          <div class="mr-sub">MRR 0.243 · 57× random · p &lt; 10⁻⁶⁰ · all 5 seeds</div>
+        </div>
+      </div>
+      <div class="model-row">
+        <div class="mr-dot" style="background:var(--t3)"></div>
+        <div>
+          <div class="mr-name">GraphSAGE</div>
+          <div class="mr-sub">MRR 0.020 · 87.9% AUC but only 1.3% Hits@10</div>
+        </div>
+      </div>
+      <div class="model-row">
+        <div class="mr-dot" style="background:var(--t3)"></div>
+        <div>
+          <div class="mr-name">HGT</div>
+          <div class="mr-sub">MRR 0.007 · 84.8% AUC — attention alone is not enough</div>
+        </div>
+      </div>
+      <div class="model-row">
+        <div class="mr-dot" style="background:var(--t3)"></div>
+        <div>
+          <div class="mr-name">GAT · GCN</div>
+          <div class="mr-sub">MRR ≤ 0.015 · not statistically significant</div>
+        </div>
+      </div>
+      <div class="model-row fail">
+        <div class="mr-dot" style="background:var(--rose)"></div>
+        <div>
+          <div class="mr-name">DistMult · ComplEx · TransE <span style="color:var(--rose);font-size:.7rem">KGE</span></div>
+          <div class="mr-sub">MRR ~0.009 · Hits@10 = 0% · structurally cannot generalize</div>
+        </div>
+      </div>
     </div>
-    <div class="mc mc-win fade-up d1">
-      <div class="mc-tag" style="color:var(--cyan)">★ Best Learned Model</div>
-      <div class="mc-name">R-GCN</div>
-      <div class="mc-sub">Per-relation weight matrices · Basis decomposition · Relation-aware aggregation</div>
-      <div class="mc-mrr"><div class="mc-mrr-val" style="color:var(--cyan)">0.243</div><div class="mc-mrr-lbl">MRR · 57× random · p &lt; 10⁻⁶⁰</div></div>
-    </div>
-    <div class="mc fade-up d2">
-      <div class="mc-tag" style="color:var(--muted)">Homogeneous GNNs + HGT</div>
-      <div class="mc-name">GCN · GraphSAGE · GAT · HGT</div>
-      <div class="mc-sub">Collapse all edge types into one aggregation — drug-class signal diluted</div>
-      <div class="mc-mrr"><div class="mc-mrr-val" style="color:var(--muted)">≤0.020</div><div class="mc-mrr-lbl">MRR · Not significant (p &gt; 0.05)</div></div>
-    </div>
-    <div class="mc mc-fail fade-up d3">
-      <div class="mc-tag" style="color:var(--rose)">KGE Baselines — Fail Zero-Shot</div>
-      <div class="mc-name">DistMult · ComplEx · TransE</div>
-      <div class="mc-sub">Lookup-table embeddings never updated for test antibiotics</div>
-      <div class="mc-mrr"><div class="mc-mrr-val" style="color:var(--rose)">~0.009</div><div class="mc-mrr-lbl">MRR · Hits@10 = 0% across all seeds</div></div>
+
+    <div class="reveal d1">
+      <div class="model-insight" style="margin-bottom:1.25rem">
+        <div class="insight-big">57×</div>
+        <div class="insight-title">R-GCN vs. random baseline</div>
+        <div class="insight-desc">MRR 0.243 against a random baseline of 0.0043. Significant in all 5 seeds (p &lt; 10⁻⁶⁰, effect size r = 0.54). Beats the heuristic on mean rank (52.8 vs 70.4) and Hits@10 (35.7% vs 32.0%).</div>
+      </div>
+      <div class="model-insight">
+        <div class="insight-big" style="color:var(--rose)">0%</div>
+        <div class="insight-title">KGE Hits@10 — every seed</div>
+        <div class="insight-desc">ComplEx achieves 97% transductive accuracy in BRIDGE. In our zero-shot setting: Hits@10 = 0% across all 5 seeds. Lookup-table embeddings cannot generalize to entities with zero training edges. This is structural — not a hyperparameter problem.</div>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- RESULTS -->
-<div class="divider"></div>
-<div class="section" id="results">
-  <div class="slabel">Results</div>
-  <h2 class="stitle">Full-drug ranking across <em>all 231 antibiotics</em></h2>
-  <p class="sdesc">Each gene is scored against all 231 antibiotics simultaneously. Filtered MRR — training positives removed from the ranking pool. 5 seeds, mean ± std.</p>
+<hr class="divider">
+<div class="wrap section" id="results-section">
+  <div class="label reveal">Results</div>
+  <h2 class="title reveal" style="margin-top:.75rem">Full-drug ranking across <em>all 231 antibiotics</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:640px">Each gene scored against all 231 antibiotics simultaneously. Filtered MRR — training positives excluded from the ranking pool. 5 seeds, mean ± std.</p>
 
-  <div class="chart-box fade-up">
-    <div class="chart-title">MRR (Mean Reciprocal Rank) — higher is better &nbsp;·&nbsp; random baseline = 0.0043</div>
-    <div class="bar-chart" id="bar-chart"></div>
+  <div class="chart-section reveal">
+    <div class="chart-lbl">MRR — higher is better &nbsp;·&nbsp; random baseline = 0.0043</div>
+    <div class="barchart" id="barchart"></div>
   </div>
 
-  <div class="tbl-wrap fade-up">
+  <div class="tbl-wrap reveal">
     <table>
-      <thead><tr><th>Model</th><th>AUC</th><th>MRR</th><th>Hits@1</th><th>Hits@10</th><th>Mean Rank</th></tr></thead>
+      <thead>
+        <tr><th>Model</th><th>AUC</th><th>MRR</th><th>Hits@1</th><th>Hits@10</th><th>Mean Rank</th></tr>
+      </thead>
       <tbody>
         <tr class="tr-heur">
-          <td>DrugClass-Heuristic<span class="badge b-heur">no training</span></td>
+          <td>DrugClass-Heuristic <span class="badge bheur">no training</span></td>
           <td>—</td><td>0.280</td><td>25.5%</td><td>32.0%</td><td>70.4</td>
         </tr>
         <tr class="tr-win">
-          <td>R-GCN<span class="badge b-win">★ best learned</span></td>
+          <td>R-GCN <span class="badge bwin">★ best learned</span></td>
           <td>0.896 ± 0.016</td><td>0.243 ± 0.078</td><td>19.0%</td><td>35.7%</td><td>52.8 ± 8.0</td>
         </tr>
         <tr>
@@ -563,88 +676,70 @@ footer{
           <td>0.696 ± 0.056</td><td>0.015 ± 0.002</td><td>0.12%</td><td>2.3%</td><td>135.2 ± 5.5</td>
         </tr>
         <tr class="tr-fail">
-          <td>TransE<span class="badge b-fail">KGE</span></td>
+          <td>TransE <span class="badge bfail">KGE</span></td>
           <td>0.630 ± 0.010</td><td>0.013 ± 0.000</td><td>0%</td><td>0%</td><td>82.3 ± 2.4</td>
         </tr>
         <tr class="tr-fail">
-          <td>ComplEx<span class="badge b-fail">KGE</span></td>
+          <td>ComplEx <span class="badge bfail">KGE</span></td>
           <td>0.515 ± 0.043</td><td>0.009 ± 0.000</td><td>0%</td><td>0%</td><td>114.0 ± 3.3</td>
         </tr>
         <tr class="tr-fail">
-          <td>DistMult<span class="badge b-fail">KGE</span></td>
+          <td>DistMult <span class="badge bfail">KGE</span></td>
           <td>0.491 ± 0.030</td><td>0.009 ± 0.000</td><td>0%</td><td>0%</td><td>114.0 ± 1.6</td>
         </tr>
       </tbody>
     </table>
   </div>
-
-  <div class="insight-row">
-    <div class="ins fade-up">
-      <div class="ins-num">57×</div>
-      <div class="ins-title">R-GCN vs Random</div>
-      <div class="ins-desc">MRR 0.243 against a random baseline of 0.0043. Statistically significant in all 5 seeds (p &lt; 10⁻⁶⁰, effect size r = 0.54).</div>
-    </div>
-    <div class="ins fade-up d1">
-      <div class="ins-num">0%</div>
-      <div class="ins-title">KGE Hits@10 — Every Seed</div>
-      <div class="ins-desc">DistMult, ComplEx, and TransE score zero Hits@10 across all 5 seeds. Zero-shot is structurally impossible for lookup-table embedding models.</div>
-    </div>
-    <div class="ins fade-up d2">
-      <div class="ins-num">88%</div>
-      <div class="ins-title">GraphSAGE AUC — But 1.3% Hits@10</div>
-      <div class="ins-desc">AUC measures type discrimination, not antibiotic ranking. Filtered MRR exposes which models actually solve the task.</div>
-    </div>
-  </div>
 </div>
 
 <!-- FINDINGS -->
-<div class="divider"></div>
-<div class="section" id="findings">
-  <div class="slabel">Key Findings</div>
-  <h2 class="stitle">What we <em>discovered</em></h2>
-  <div class="findings">
-    <div class="finding fade-up">
-      <div class="f-num">01</div>
+<hr class="divider">
+<div class="wrap section" id="findings-section">
+  <div class="label reveal">Key Findings</div>
+  <h2 class="title reveal" style="margin-top:.75rem">What the data <em>tells us</em></h2>
+  <div class="findings reveal">
+    <div class="finding">
+      <div class="fn">01</div>
       <div>
-        <div class="f-title">Drug class is the dominant zero-shot signal</div>
-        <div class="f-desc">A zero-parameter heuristic achieves MRR 0.280 (65× random) purely from drug class membership. Genes that resist known beta-lactams resist novel beta-lactams. This is biology, not learning — and it sets the bar every model must beat.</div>
+        <div class="ft">Drug class is the dominant zero-shot signal</div>
+        <div class="fd">A zero-parameter heuristic achieves MRR 0.280 (65× random) purely from drug class membership. Genes that resist known beta-lactams will resist novel beta-lactams. This is biology — not learning. It sets the bar every trained model must clear.</div>
       </div>
     </div>
-    <div class="finding fade-up d1">
-      <div class="f-num">02</div>
+    <div class="finding">
+      <div class="fn">02</div>
       <div>
-        <div class="f-title">R-GCN works — and we know exactly why</div>
-        <div class="f-desc">Per-relation weight matrices give R-GCN a dedicated learned function for each of the 9 edge types. The antibiotic→class pathway propagates drug-class identity to unseen antibiotics cleanly. Every other GNN collapses all edge types into one aggregation, diluting this signal.</div>
+        <div class="ft">R-GCN works — and the reason is architectural</div>
+        <div class="fd">Per-relation weight matrices give R-GCN a dedicated learned function for each of the 9 edge types. The antibiotic→class pathway propagates drug-class identity to unseen antibiotics cleanly. Every homogeneous GNN collapses all 9 edge types into one aggregation, diluting the drug-class signal beyond recovery.</div>
       </div>
     </div>
-    <div class="finding fade-up d2">
-      <div class="f-num">03</div>
+    <div class="finding">
+      <div class="fn">03</div>
       <div>
-        <div class="f-title">AUC is a misleading metric for this task</div>
-        <div class="f-desc">HGT: 84.8% AUC — 0% Hits@10. GraphSAGE: 87.9% AUC — 1.3% Hits@10. High AUC reflects node-type discrimination, not antibiotic-level ranking. Filtered MRR over all 231 antibiotics simultaneously is the correct metric.</div>
+        <div class="ft">AUC is a misleading metric for this task</div>
+        <div class="fd">HGT achieves 84.8% AUC — with 0% Hits@10. GraphSAGE achieves 87.9% AUC — with 1.3% Hits@10. High AUC reflects node-type discrimination, not actual antibiotic ranking ability. Filtered MRR over all 231 antibiotics simultaneously is the only honest metric for this task.</div>
       </div>
     </div>
-    <div class="finding fade-up d3">
-      <div class="f-num">04</div>
+    <div class="finding">
+      <div class="fn">04</div>
       <div>
-        <div class="f-title">KGE models fail zero-shot by construction — regardless of architecture</div>
-        <div class="f-desc">ComplEx (BRIDGE's best model, 97% transductive accuracy) scores Hits@10 = 0% in our setting. Proved with a controlled experiment: the same DistMult model achieves 68.2% AUC on seen antibiotics and 49.5% (random) on unseen. The failure is structural — not a hyperparameter problem.</div>
+        <div class="ft">KGE models fail zero-shot by construction — architecture is irrelevant</div>
+        <div class="fd">ComplEx is BRIDGE's best model at 97% transductive accuracy. In our setting: Hits@10 = 0% across all 5 seeds. Controlled proof: same DistMult model scores 68.2% AUC on seen antibiotics, collapses to 49.5% (random) on unseen. The failure is structural — lookup-table embeddings are never updated for entities with no training edges.</div>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ABLATION -->
-<div class="divider"></div>
-<div class="section" id="ablation">
-  <div class="slabel">Ablation Study</div>
-  <h2 class="stitle">Does GO + KEGG enrichment <em>help?</em></h2>
-  <p class="sdesc">Comparing the base CARD graph against the enriched graph (+ Gene Ontology + KEGG pathways). Only R-GCN benefits — it's the only model that treats new edge types as distinct relations.</p>
-  <div class="abl-box fade-up">
-    <table class="abl-table">
+<hr class="divider">
+<div class="wrap section" id="ablation-section">
+  <div class="label reveal">Ablation Study</div>
+  <h2 class="title reveal" style="margin-top:.75rem">Does GO + KEGG enrichment <em>change anything?</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:580px">Comparing the base CARD graph against the enriched version. Only R-GCN benefits — it's the only architecture that treats new edge types as distinct learned relations.</p>
+  <div class="tbl-wrap reveal" style="margin-top:2rem">
+    <table class="abl-tbl">
       <thead><tr><th>Model</th><th>Original MRR</th><th>Enriched MRR</th><th>Delta</th></tr></thead>
       <tbody>
-        <tr class="hl">
+        <tr class="abl-hl">
           <td><strong>R-GCN</strong></td>
           <td>0.205 ± 0.040</td><td>0.224 ± 0.055</td>
           <td class="d-pos">+0.019 ↑</td>
@@ -660,356 +755,381 @@ footer{
 </div>
 
 <!-- TECH -->
-<div class="divider"></div>
-<div class="section" id="tech">
-  <div class="slabel">Built With</div>
-  <h2 class="stitle">Open-source <em>technology stack</em></h2>
-  <p class="sdesc">Deep learning, graph ML, cheminformatics, and bioinformatics tools — all open source.</p>
-  <div class="tech-pills fade-up">
-    <span class="tpill">PyTorch</span>
-    <span class="tpill">PyTorch Geometric</span>
-    <span class="tpill">ESM-2 (Meta AI)</span>
-    <span class="tpill">RDKit</span>
-    <span class="tpill">CARD v4.0.1</span>
-    <span class="tpill">UniProt API</span>
-    <span class="tpill">KEGG REST API</span>
-    <span class="tpill">STRING Database</span>
-    <span class="tpill">ChEMBL</span>
-    <span class="tpill">scikit-learn</span>
-    <span class="tpill">SciPy</span>
-    <span class="tpill">NumPy</span>
+<hr class="divider">
+<div class="wrap section">
+  <div class="label reveal">Stack</div>
+  <h2 class="title reveal" style="margin-top:.75rem">Built on <em>open-source</em> tools</h2>
+  <div class="pills reveal">
+    <span class="pill">PyTorch</span>
+    <span class="pill">PyTorch Geometric</span>
+    <span class="pill">ESM-2 (Meta AI)</span>
+    <span class="pill">RDKit</span>
+    <span class="pill">CARD v4.0.1</span>
+    <span class="pill">UniProt API</span>
+    <span class="pill">KEGG REST API</span>
+    <span class="pill">STRING Database</span>
+    <span class="pill">ChEMBL</span>
+    <span class="pill">scikit-learn</span>
+    <span class="pill">SciPy</span>
+    <span class="pill">NumPy</span>
   </div>
 </div>
 
 <!-- CTA -->
-<div class="cta-wrap fade-up">
-  <div class="slabel" style="margin-bottom:.75rem">Open Source</div>
-  <h2 class="stitle" style="max-width:580px;margin:0 auto">All code, models, and results are <em>publicly available</em></h2>
-  <a href="https://github.com/Prakhar-Sethi/ResistomeZero" target="_blank" class="cta-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-    View on GitHub
-  </a>
-</div>
+<section id="cta">
+  <div class="cta-inner reveal">
+    <div class="label" style="margin-bottom:.75rem">Open Source</div>
+    <h2 class="title">All code and results are publicly available</h2>
+    <a href="https://github.com/Prakhar-Sethi/ResistomeZero" target="_blank" class="cta-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+  </div>
+</section>
 
 <footer>ResistomeZero — Zero-Shot Antibiotic Resistance Prediction via Heterogeneous Graph Neural Networks</footer>
 
 <script>
-// ============================================================
-// HERO BACKGROUND — animated network
-// ============================================================
-(function(){
-  const cv = document.getElementById('hero-canvas');
-  const cx = cv.getContext('2d');
-  const COLS = ['#10b981','#f59e0b','#8b5cf6','#f43f5e','#3b82f6','#00d4ff','#a78bfa','#06b6d4'];
-  let W,H,nodes,mouse={x:-999,y:-999};
+/* ── NAV ─────────────────────────────────────────────────── */
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('on', window.scrollY > 50);
+}, { passive: true });
 
-  function resize(){
-    W=cv.width=cv.offsetWidth; H=cv.height=cv.offsetHeight;
-  }
-  function init(){
-    nodes=[];
-    const n=Math.min(70,Math.floor(W*H/14000));
-    for(let i=0;i<n;i++) nodes.push({
-      x:Math.random()*W, y:Math.random()*H,
-      vx:(Math.random()-.5)*.45, vy:(Math.random()-.5)*.45,
-      r:Math.random()*2.5+2,
-      c:COLS[Math.floor(Math.random()*COLS.length)],
-      op:Math.random()*.5+.25
-    });
-  }
-  function frame(){
-    cx.clearRect(0,0,W,H);
-    // edges
-    for(let i=0;i<nodes.length;i++){
-      for(let j=i+1;j<nodes.length;j++){
-        const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
-        const d=Math.sqrt(dx*dx+dy*dy);
-        if(d<170){
-          cx.beginPath();
-          cx.moveTo(nodes[i].x,nodes[i].y);
-          cx.lineTo(nodes[j].x,nodes[j].y);
-          cx.strokeStyle=`rgba(0,212,255,${.07*(1-d/170)})`;
-          cx.lineWidth=.8; cx.stroke();
-        }
-      }
+/* ── REVEAL ON SCROLL ────────────────────────────────────── */
+const ro = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+/* ── COUNT UP ────────────────────────────────────────────── */
+function countUp(el, target, dur = 1800) {
+  const big = target > 999;
+  const t0 = performance.now();
+  (function tick(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = big ? Math.round(ease * target).toLocaleString() : Math.round(ease * target);
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+setTimeout(() => {
+  document.querySelectorAll('.hs-num[data-count]').forEach(el => countUp(el, +el.dataset.count, 2200));
+}, 300);
+const co = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting && !e.target.dataset.done) {
+      e.target.dataset.done = '1';
+      countUp(e.target, +e.target.dataset.count);
     }
-    // nodes
-    for(const n of nodes){
-      const dx=n.x-mouse.x, dy=n.y-mouse.y;
-      const d=Math.sqrt(dx*dx+dy*dy);
-      if(d<130){ const f=(130-d)/130*.9; n.vx+=(dx/d)*f; n.vy+=(dy/d)*f; }
-      const sp=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
-      if(sp>1.6){n.vx*=1.6/sp;n.vy*=1.6/sp;}
-      n.x+=n.vx; n.y+=n.vy;
-      n.vx*=.985; n.vy*=.985;
-      if(n.x<0||n.x>W)n.vx*=-1;
-      if(n.y<0||n.y>H)n.vy*=-1;
-      n.x=Math.max(0,Math.min(W,n.x));
-      n.y=Math.max(0,Math.min(H,n.y));
-      // glow
-      cx.beginPath(); cx.arc(n.x,n.y,n.r*3,0,Math.PI*2);
-      cx.fillStyle=n.c+'20'; cx.fill();
-      // core
-      cx.beginPath(); cx.arc(n.x,n.y,n.r,0,Math.PI*2);
-      cx.fillStyle=n.c+Math.floor(n.op*255).toString(16).padStart(2,'0');
-      cx.fill();
-    }
-    requestAnimationFrame(frame);
-  }
-  window.addEventListener('resize',()=>{resize();init();});
-  cv.addEventListener('mousemove',e=>{
-    const r=cv.getBoundingClientRect();
-    mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top;
   });
-  cv.addEventListener('mouseleave',()=>{mouse.x=mouse.y=-999;});
-  resize(); init(); frame();
-})();
+}, { threshold: 0.6 });
+document.querySelectorAll('.crisis-num[data-count]').forEach(el => co.observe(el));
 
-// ============================================================
-// INTERACTIVE KNOWLEDGE GRAPH
-// ============================================================
-(function(){
-  const cv=document.getElementById('graph-canvas');
-  if(!cv)return;
-  const cx=cv.getContext('2d');
-  let W,H,nodes=[],edges=[],activeType=null,animFrame;
-  const TYPES={
-    gene:      {color:'#10b981',r:7,count:20},
-    antibiotic:{color:'#f59e0b',r:9,count:9},
-    class:     {color:'#8b5cf6',r:8,count:5},
-    mechanism: {color:'#f43f5e',r:7,count:4},
-    family:    {color:'#3b82f6',r:6,count:7},
-    go:        {color:'#06b6d4',r:5,count:7},
-    kegg:      {color:'#a78bfa',r:5,count:8},
-  };
-  const EDGE_COLS={
-    resistance:'#f59e0b55', class_link:'#8b5cf655',
-    mechanism:'#f43f5e44', family:'#3b82f644',
-    go:'#06b6d444', kegg:'#a78bfa44'
+/* ── HERO NETWORK (right panel) ──────────────────────────── */
+(function () {
+  const cv = document.getElementById('network-canvas');
+  if (!cv) return;
+  const cx = cv.getContext('2d');
+
+  const TYPES = {
+    gene:       { color: '#3d9e52', r: 6,  n: 22 },
+    antibiotic: { color: '#c8943a', r: 9,  n: 9  },
+    class:      { color: '#7c5cbf', r: 11, n: 5  },
+    mechanism:  { color: '#cc4444', r: 7,  n: 4  },
+    family:     { color: '#3a7aaa', r: 6,  n: 8  },
+    go:         { color: '#2a9d8f', r: 5,  n: 7  },
+    kegg:       { color: '#8a7ab0', r: 5,  n: 8  },
   };
 
-  function resize(){
-    W=cv.width=cv.offsetWidth;
-    H=cv.height=Math.round(Math.min(420,cv.offsetWidth*.48));
-    cv.style.height=H+'px';
-    buildGraph();
+  let W, H, nodes = [], edges = [];
+
+  function resize() {
+    W = cv.width = cv.offsetWidth;
+    H = cv.height = cv.offsetHeight;
+    build();
   }
 
-  function buildGraph(){
-    nodes=[]; edges=[];
-    for(const[type,cfg] of Object.entries(TYPES)){
-      for(let i=0;i<cfg.count;i++){
+  function build() {
+    nodes = []; edges = [];
+    for (const [type, cfg] of Object.entries(TYPES)) {
+      for (let i = 0; i < cfg.n; i++) {
         nodes.push({
-          id:nodes.length, type, r:cfg.r,
-          color:cfg.color,
-          x:Math.random()*(W-100)+50,
-          y:Math.random()*(H-60)+30,
-          vx:(Math.random()-.5)*.4,
-          vy:(Math.random()-.5)*.4
+          id: nodes.length, type,
+          color: cfg.color, r: cfg.r,
+          x: cfg.r + Math.random() * (W - cfg.r * 2),
+          y: cfg.r + Math.random() * (H - cfg.r * 2),
+          vx: (Math.random() - .5) * .35,
+          vy: (Math.random() - .5) * .35,
         });
       }
     }
-    const byType=t=>nodes.filter(n=>n.type===t);
-    const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
+    const byType = t => nodes.filter(n => n.type === t);
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const genes = byType('gene'), abs = byType('antibiotic');
+    const cls = byType('class'), mechs = byType('mechanism');
+    const fams = byType('family'), gos = byType('go'), keggs = byType('kegg');
 
-    const genes=byType('gene'), abs=byType('antibiotic');
-    const cls=byType('class'), mechs=byType('mechanism');
-    const fams=byType('family'), gos=byType('go'), keggs=byType('kegg');
-
-    genes.forEach(g=>{
-      edges.push({s:g.id,t:rand(abs).id,et:'resistance'});
-      if(Math.random()<.45) edges.push({s:g.id,t:rand(abs).id,et:'resistance'});
-      if(Math.random()<.7)  edges.push({s:g.id,t:rand(mechs).id,et:'mechanism'});
-      if(Math.random()<.6)  edges.push({s:g.id,t:rand(fams).id,et:'family'});
-      if(Math.random()<.45) edges.push({s:g.id,t:rand(gos).id,et:'go'});
-      if(Math.random()<.45) edges.push({s:g.id,t:rand(keggs).id,et:'kegg'});
+    genes.forEach(g => {
+      edges.push({ s: g.id, t: pick(abs).id, c: '#c8943a' });
+      if (Math.random() < .5) edges.push({ s: g.id, t: pick(abs).id, c: '#c8943a' });
+      if (Math.random() < .7) edges.push({ s: g.id, t: pick(mechs).id, c: '#cc4444' });
+      if (Math.random() < .6) edges.push({ s: g.id, t: pick(fams).id, c: '#3a7aaa' });
+      if (Math.random() < .4) edges.push({ s: g.id, t: pick(gos).id, c: '#2a9d8f' });
+      if (Math.random() < .4) edges.push({ s: g.id, t: pick(keggs).id, c: '#8a7ab0' });
     });
-    abs.forEach(a=>edges.push({s:a.id,t:rand(cls).id,et:'class_link'}));
+    abs.forEach(a => edges.push({ s: a.id, t: pick(cls).id, c: '#7c5cbf' }));
   }
 
-  function physics(){
-    // repulsion
-    for(let i=0;i<nodes.length;i++){
-      for(let j=i+1;j<nodes.length;j++){
-        const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
-        const d=Math.sqrt(dx*dx+dy*dy)||1;
-        if(d<50){
-          const f=(50-d)/50*.6;
-          const fx=dx/d*f, fy=dy/d*f;
-          nodes[i].vx+=fx; nodes[i].vy+=fy;
-          nodes[j].vx-=fx; nodes[j].vy-=fy;
+  function physics() {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (d < 55) {
+          const f = (55 - d) / 55 * .55;
+          const fx = dx / d * f, fy = dy / d * f;
+          nodes[i].vx += fx; nodes[i].vy += fy;
+          nodes[j].vx -= fx; nodes[j].vy -= fy;
         }
       }
     }
-    // edge spring
-    edges.forEach(e=>{
-      const s=nodes[e.s],t=nodes[e.t];
-      const dx=t.x-s.x, dy=t.y-s.y;
-      const d=Math.sqrt(dx*dx+dy*dy)||1;
-      const ideal=e.et==='resistance'?95:80;
-      if(d>ideal){
-        const f=(d-ideal)/d*.025;
-        s.vx+=dx*f; s.vy+=dy*f;
-        t.vx-=dx*f; t.vy-=dy*f;
+    edges.forEach(e => {
+      const s = nodes[e.s], t = nodes[e.t];
+      const dx = t.x - s.x, dy = t.y - s.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ideal = 90;
+      if (d > ideal) {
+        const f = (d - ideal) / d * .022;
+        s.vx += dx * f; s.vy += dy * f;
+        t.vx -= dx * f; t.vy -= dy * f;
       }
     });
-    // center gravity
-    nodes.forEach(n=>{
-      n.vx+=(W/2-n.x)*.0008;
-      n.vy+=(H/2-n.y)*.0008;
-      const sp=Math.sqrt(n.vx*n.vx+n.vy*n.vy);
-      if(sp>2){n.vx*=2/sp;n.vy*=2/sp;}
-      n.x+=n.vx; n.y+=n.vy;
-      n.vx*=.84; n.vy*=.84;
-      n.x=Math.max(n.r+4,Math.min(W-n.r-4,n.x));
-      n.y=Math.max(n.r+4,Math.min(H-n.r-4,n.y));
+    nodes.forEach(n => {
+      n.vx += (W / 2 - n.x) * .0007;
+      n.vy += (H / 2 - n.y) * .0007;
+      const sp = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+      if (sp > 1.8) { n.vx *= 1.8 / sp; n.vy *= 1.8 / sp; }
+      n.x += n.vx; n.y += n.vy;
+      n.vx *= .84; n.vy *= .84;
+      n.x = Math.max(n.r + 4, Math.min(W - n.r - 4, n.x));
+      n.y = Math.max(n.r + 4, Math.min(H - n.r - 4, n.y));
     });
   }
 
-  function draw(){
-    cx.clearRect(0,0,W,H);
-    // edges
-    edges.forEach(e=>{
-      const s=nodes[e.s], t=nodes[e.t];
-      const show=!activeType||(s.type===activeType||t.type===activeType);
+  function draw() {
+    cx.clearRect(0, 0, W, H);
+    edges.forEach(e => {
+      const s = nodes[e.s], t = nodes[e.t];
       cx.beginPath();
-      cx.moveTo(s.x,s.y); cx.lineTo(t.x,t.y);
-      cx.strokeStyle=show
-        ? EDGE_COLS[e.et].replace(/[\da-f]{2}(?=\))/i,'cc')
-        : EDGE_COLS[e.et].replace(/[\da-f]{2}(?=\))/i,'18');
-      cx.lineWidth=show?1.4:.5;
+      // bezier curve edge
+      const mx = (s.x + t.x) / 2 + (Math.random() - .5) * 0; // straight for performance
+      cx.moveTo(s.x, s.y);
+      cx.lineTo(t.x, t.y);
+      cx.strokeStyle = e.c + '50';
+      cx.lineWidth = 1;
       cx.stroke();
     });
-    // nodes
-    nodes.forEach(n=>{
-      const active=!activeType||n.type===activeType;
-      const hex=active?'ff':'28';
+    nodes.forEach(n => {
       // outer glow
-      cx.beginPath(); cx.arc(n.x,n.y,n.r*2.8,0,Math.PI*2);
-      cx.fillStyle=n.color+(active?'22':'08'); cx.fill();
-      // ring
-      if(active){
-        cx.beginPath(); cx.arc(n.x,n.y,n.r+2.5,0,Math.PI*2);
-        cx.strokeStyle=n.color+'55'; cx.lineWidth=1.2; cx.stroke();
-      }
+      const grad = cx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 2.5);
+      grad.addColorStop(0, n.color + '30');
+      grad.addColorStop(1, n.color + '00');
+      cx.beginPath(); cx.arc(n.x, n.y, n.r * 2.5, 0, Math.PI * 2);
+      cx.fillStyle = grad; cx.fill();
       // core
-      cx.beginPath(); cx.arc(n.x,n.y,n.r,0,Math.PI*2);
-      cx.fillStyle=n.color+hex; cx.fill();
+      cx.beginPath(); cx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      cx.fillStyle = n.color; cx.fill();
+      // inner highlight
+      cx.beginPath(); cx.arc(n.x - n.r * .28, n.y - n.r * .28, n.r * .38, 0, Math.PI * 2);
+      cx.fillStyle = 'rgba(255,255,255,.18)'; cx.fill();
     });
     physics();
-    animFrame=requestAnimationFrame(draw);
+    requestAnimationFrame(draw);
   }
 
-  // legend clicks
-  document.querySelectorAll('.leg-item').forEach(el=>{
-    el.addEventListener('click',()=>{
-      const t=el.dataset.type;
-      activeType=activeType===t?null:t;
-      document.querySelectorAll('.leg-item').forEach(i=>{
-        i.classList.toggle('active',i.dataset.type===activeType);
-        i.style.opacity=(!activeType||i.dataset.type===activeType)?'1':'.35';
+  window.addEventListener('resize', resize);
+  resize(); draw();
+})();
+
+/* ── INTERACTIVE GRAPH (middle section) ──────────────────── */
+(function () {
+  const cv = document.getElementById('graph-canvas');
+  if (!cv) return;
+  const cx = cv.getContext('2d');
+
+  const TYPES = {
+    gene:       { color: '#3d9e52', r: 7,  n: 20 },
+    antibiotic: { color: '#c8943a', r: 9,  n: 9  },
+    class:      { color: '#7c5cbf', r: 10, n: 5  },
+    mechanism:  { color: '#cc4444', r: 7,  n: 4  },
+    family:     { color: '#3a7aaa', r: 6,  n: 7  },
+    go:         { color: '#2a9d8f', r: 5,  n: 7  },
+    kegg:       { color: '#8a7ab0', r: 5,  n: 8  },
+  };
+
+  let W, H, nodes = [], edges = [], active = null, af;
+
+  function resize() {
+    W = cv.width = cv.offsetWidth;
+    H = cv.height = 400;
+    cv.style.height = '400px';
+    build();
+  }
+
+  function build() {
+    nodes = []; edges = [];
+    for (const [type, cfg] of Object.entries(TYPES)) {
+      for (let i = 0; i < cfg.n; i++) {
+        nodes.push({
+          id: nodes.length, type, color: cfg.color, r: cfg.r,
+          x: cfg.r + Math.random() * (W - cfg.r * 2),
+          y: cfg.r + Math.random() * (H - cfg.r * 2),
+          vx: (Math.random() - .5) * .4, vy: (Math.random() - .5) * .4,
+        });
+      }
+    }
+    const byType = t => nodes.filter(n => n.type === t);
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const genes = byType('gene'), abs = byType('antibiotic');
+    const cls = byType('class'), mechs = byType('mechanism');
+    const fams = byType('family'), gos = byType('go'), keggs = byType('kegg');
+
+    const addEdge = (s, t, c) => edges.push({ s: s.id, t: t.id, c });
+    genes.forEach(g => {
+      addEdge(g, pick(abs), '#c8943a');
+      if (Math.random() < .45) addEdge(g, pick(abs), '#c8943a');
+      if (Math.random() < .7)  addEdge(g, pick(mechs), '#cc4444');
+      if (Math.random() < .6)  addEdge(g, pick(fams), '#3a7aaa');
+      if (Math.random() < .4)  addEdge(g, pick(gos), '#2a9d8f');
+      if (Math.random() < .4)  addEdge(g, pick(keggs), '#8a7ab0');
+    });
+    abs.forEach(a => addEdge(a, pick(cls), '#7c5cbf'));
+  }
+
+  function physics() {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (d < 52) {
+          const f = (52 - d) / 52 * .55;
+          const fx = dx / d * f, fy = dy / d * f;
+          nodes[i].vx += fx; nodes[i].vy += fy;
+          nodes[j].vx -= fx; nodes[j].vy -= fy;
+        }
+      }
+    }
+    edges.forEach(e => {
+      const s = nodes[e.s], t = nodes[e.t];
+      const dx = t.x - s.x, dy = t.y - s.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ideal = 85;
+      if (d > ideal) {
+        const f = (d - ideal) / d * .022;
+        s.vx += dx * f; s.vy += dy * f;
+        t.vx -= dx * f; t.vy -= dy * f;
+      }
+    });
+    nodes.forEach(n => {
+      n.vx += (W / 2 - n.x) * .0007;
+      n.vy += (H / 2 - n.y) * .0007;
+      const sp = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+      if (sp > 2) { n.vx *= 2 / sp; n.vy *= 2 / sp; }
+      n.x += n.vx; n.y += n.vy;
+      n.vx *= .83; n.vy *= .83;
+      n.x = Math.max(n.r + 4, Math.min(W - n.r - 4, n.x));
+      n.y = Math.max(n.r + 4, Math.min(H - n.r - 4, n.y));
+    });
+  }
+
+  function draw() {
+    cx.clearRect(0, 0, W, H);
+    edges.forEach(e => {
+      const s = nodes[e.s], t = nodes[e.t];
+      const show = !active || s.type === active || t.type === active;
+      cx.beginPath();
+      cx.moveTo(s.x, s.y); cx.lineTo(t.x, t.y);
+      cx.strokeStyle = e.c + (show ? '70' : '15');
+      cx.lineWidth = show ? 1.2 : .5;
+      cx.stroke();
+    });
+    nodes.forEach(n => {
+      const on = !active || n.type === active;
+      // glow
+      cx.beginPath(); cx.arc(n.x, n.y, n.r * 2.8, 0, Math.PI * 2);
+      cx.fillStyle = n.color + (on ? '22' : '06'); cx.fill();
+      // ring
+      if (on) {
+        cx.beginPath(); cx.arc(n.x, n.y, n.r + 2, 0, Math.PI * 2);
+        cx.strokeStyle = n.color + '44'; cx.lineWidth = 1.2; cx.stroke();
+      }
+      // core
+      cx.beginPath(); cx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      cx.fillStyle = n.color + (on ? 'ff' : '30'); cx.fill();
+      // highlight
+      if (on) {
+        cx.beginPath(); cx.arc(n.x - n.r * .27, n.y - n.r * .27, n.r * .35, 0, Math.PI * 2);
+        cx.fillStyle = 'rgba(255,255,255,.15)'; cx.fill();
+      }
+    });
+    physics();
+    af = requestAnimationFrame(draw);
+  }
+
+  // legend
+  document.querySelectorAll('.leg').forEach(el => {
+    el.addEventListener('click', () => {
+      const t = el.dataset.t;
+      active = active === t ? null : t;
+      document.querySelectorAll('.leg').forEach(i => {
+        const isActive = !active || i.dataset.t === active;
+        i.classList.toggle('on', i.dataset.t === active);
+        i.style.opacity = isActive ? '1' : '.35';
       });
     });
   });
 
-  window.addEventListener('resize',()=>{
-    cancelAnimationFrame(animFrame);
-    resize(); draw();
-  });
+  window.addEventListener('resize', () => { cancelAnimationFrame(af); resize(); draw(); });
   resize(); draw();
 })();
 
-// ============================================================
-// NAV
-// ============================================================
-window.addEventListener('scroll',()=>{
-  document.getElementById('nav').classList.toggle('scrolled',window.scrollY>40);
-},{ passive:true });
-
-// ============================================================
-// FADE-UP ON SCROLL
-// ============================================================
-const fadeObs=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('in'); });
-},{threshold:.12});
-document.querySelectorAll('.fade-up').forEach(el=>fadeObs.observe(el));
-
-// ============================================================
-// COUNT-UP
-// ============================================================
-function countUp(el,target,dur=1600){
-  const big=target>999;
-  const start=performance.now();
-  function tick(now){
-    const p=Math.min((now-start)/dur,1);
-    const ease=1-Math.pow(1-p,3);
-    const v=Math.round(ease*target);
-    el.textContent=big?v.toLocaleString():v;
-    if(p<1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
-// hero stats — immediate
-setTimeout(()=>{
-  document.querySelectorAll('.hs-num[data-count]').forEach(el=>{
-    countUp(el,+el.dataset.count,2200);
-  });
-},400);
-// crisis cards — on scroll
-const countObs=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{
-    if(e.isIntersecting&&!e.target.dataset.done){
-      e.target.dataset.done='1';
-      countUp(e.target,+e.target.dataset.count);
-    }
-  });
-},{threshold:.6});
-document.querySelectorAll('.crisis-num[data-count]').forEach(el=>countObs.observe(el));
-
-// ============================================================
-// BAR CHART
-// ============================================================
-(function(){
-  const data=[
-    {label:'DrugClass-Heuristic', mrr:.280, color:'#f59e0b', note:'no training'},
-    {label:'R-GCN',               mrr:.243, color:'#00d4ff', note:'★ best'},
-    {label:'GraphSAGE',           mrr:.020, color:'#94a3b8', note:''},
-    {label:'GCN',                 mrr:.015, color:'#94a3b8', note:''},
-    {label:'TransE',              mrr:.013, color:'#f43f5e', note:'KGE'},
-    {label:'GAT',                 mrr:.009, color:'#94a3b8', note:''},
-    {label:'ComplEx',             mrr:.009, color:'#f43f5e', note:'KGE'},
-    {label:'DistMult',            mrr:.009, color:'#f43f5e', note:'KGE'},
-    {label:'HGT',                 mrr:.007, color:'#94a3b8', note:''},
+/* ── BAR CHART ───────────────────────────────────────────── */
+(function () {
+  const data = [
+    { label: 'DrugClass-Heuristic', mrr: .280, color: '#c8943a', note: 'no training' },
+    { label: 'R-GCN',               mrr: .243, color: '#3d9e52', note: '★' },
+    { label: 'GraphSAGE',           mrr: .020, color: '#4a6350', note: '' },
+    { label: 'GCN',                 mrr: .015, color: '#4a6350', note: '' },
+    { label: 'TransE',              mrr: .013, color: '#8a4a4a', note: 'KGE' },
+    { label: 'GAT',                 mrr: .009, color: '#4a6350', note: '' },
+    { label: 'ComplEx',             mrr: .009, color: '#8a4a4a', note: 'KGE' },
+    { label: 'DistMult',            mrr: .009, color: '#8a4a4a', note: 'KGE' },
+    { label: 'HGT',                 mrr: .007, color: '#4a6350', note: '' },
   ];
-  const max=.28;
-  const wrap=document.getElementById('bar-chart');
-  data.forEach(d=>{
-    const pct=(d.mrr/max*100).toFixed(1)+'%';
-    const row=document.createElement('div');
-    row.className='bar-row';
-    row.innerHTML=`
-      <div class="bar-lbl" style="color:${d.color}">${d.label}${d.note?` <span style="font-size:.68rem;color:var(--muted)">(${d.note})</span>`:''}
-      </div>
-      <div class="bar-track">
-        <div class="bar-fill" style="background:${d.color}" data-w="${pct}">
-          ${d.mrr>=.04?d.mrr.toFixed(3):''}
-        </div>
-      </div>
-      <div class="bar-val" style="color:${d.color}">${d.mrr.toFixed(3)}</div>`;
+  const max = .28;
+  const wrap = document.getElementById('barchart');
+  data.forEach(d => {
+    const pct = (d.mrr / max * 100).toFixed(1) + '%';
+    const row = document.createElement('div');
+    row.className = 'brow';
+    row.innerHTML = `
+      <div class="blbl" style="color:${d.color}">${d.label}${d.note ? `<span style="font-size:.65rem;color:var(--t3);margin-left:.3rem">${d.note}</span>` : ''}</div>
+      <div class="btrack"><div class="bfill" style="background:${d.color}" data-w="${pct}">${d.mrr >= .04 ? d.mrr.toFixed(3) : ''}</div></div>
+      <div class="bval" style="color:${d.color}">${d.mrr.toFixed(3)}</div>`;
     wrap.appendChild(row);
   });
-  const barObs=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{
-      if(e.isIntersecting){
-        e.target.querySelectorAll('.bar-fill').forEach((b,i)=>{
-          setTimeout(()=>{ b.style.width=b.dataset.w; },i*60+80);
+  const bo = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.bfill').forEach((b, i) => {
+          setTimeout(() => { b.style.width = b.dataset.w; }, i * 55 + 60);
         });
-        barObs.unobserve(e.target);
+        bo.unobserve(e.target);
       }
     });
-  },{threshold:.3});
-  const box=wrap.closest('.chart-box');
-  if(box) barObs.observe(box);
+  }, { threshold: .25 });
+  const box = wrap.closest('.chart-section');
+  if (box) bo.observe(box);
 })();
 </script>
 </body>
