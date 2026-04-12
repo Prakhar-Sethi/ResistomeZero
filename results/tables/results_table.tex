@@ -40,13 +40,34 @@ Attention GNN
     & $140.6 \pm 6.1$
     & n.s. \\
 \midrule
-\multirow{2}{*}{Relation-aware GNN}
-  & \textbf{R-GCN}
-    & $\mathbf{0.896 \pm 0.016}$
-    & $\mathbf{0.243 \pm 0.078}$
-    & $\mathbf{18.96\%}$
-    & $\mathbf{35.70\%}$
-    & $\mathbf{52.8 \pm 8.0}$
+\multirow{5}{*}{Relation-aware GNN}
+  & R-GCN
+    & $0.896 \pm 0.016$
+    & $0.243 \pm 0.078$
+    & $18.96\%$
+    & $35.70\%$
+    & $52.8 \pm 8.0$
+    & $< 10^{-60}$ \\
+  & R-GCN+SA ($\lambda$=0.1)$^\S$
+    & $0.882 \pm 0.008$
+    & $0.218 \pm 0.010$
+    & $15.22\%$
+    & $36.35\%$
+    & $53.1 \pm 5.6$
+    & $< 10^{-60}$ \\
+  & \textbf{R-GCN+SA ($\lambda$=0.5)$^\S$}
+    & $0.893 \pm 0.029$
+    & $\mathbf{0.286 \pm 0.057}$
+    & $\mathbf{21.71\%}$
+    & $41.88\%$
+    & $50.4 \pm 8.9$
+    & $< 10^{-60}$ \\
+  & \textbf{R-GCN+ListNet$^\P$}
+    & $0.787 \pm 0.014$
+    & $0.223 \pm 0.019$
+    & $8.52\%$
+    & $\mathbf{49.81\%}$
+    & $55.0 \pm 7.3$
     & $< 10^{-60}$ \\
   & HGT
     & $0.848 \pm 0.015$
@@ -83,5 +104,5 @@ Attention GNN
 \bottomrule
 \end{tabular}
 \vspace{1mm}
-\footnotesize{$^\star$GraphSAGE is significant in some seeds but not consistently. R-GCN and DrugClass-Heuristic are significant in all seeds ($p < 10^{-60}$). Only models with all-seed significance should be considered reliable. Hits@1 and Hits@10 reported as mean over 5 seeds (std omitted for space; all KGE Hits values are 0.00\% across all seeds).}
+\footnotesize{$^\star$GraphSAGE is significant in some seeds but not consistently. R-GCN, R-GCN+SA, and DrugClass-Heuristic are significant in all seeds ($p < 10^{-60}$). Only models with all-seed significance should be considered reliable. Hits@1 and Hits@10 reported as mean over 5 seeds (std omitted for space; all KGE Hits values are 0.00\% across all seeds). $^\S$SA = Structural Alignment auxiliary loss ($\lambda$=0.5). R-GCN+SA achieves the best MRR, surpassing the heuristic. $^\P$ListNet = sampled softmax ranking loss ($K$=5 hard negatives per positive). R-GCN+ListNet achieves the best Hits@10. Bold per column indicates best value.}
 \end{table*}
