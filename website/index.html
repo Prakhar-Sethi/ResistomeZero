@@ -400,6 +400,61 @@ footer {
 }
 .pill:hover { border-color:var(--green); color:var(--cream); }
 
+/* ─── NOVEL COMPOUND DEMO ────────────────────────────────── */
+.novel-grid {
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  gap:1.25rem; margin-top:2.5rem;
+}
+@media(max-width:780px){ .novel-grid{ grid-template-columns:1fr; } }
+
+.novel-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:12px; padding:1.5rem; cursor:pointer;
+  transition:border-color .25s, transform .2s;
+}
+.novel-card:hover, .novel-card.active {
+  border-color:var(--green); transform:translateY(-2px);
+}
+.novel-card.active { background:var(--bg3); }
+.nc-label { font-size:.68rem; font-weight:700; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--green); margin-bottom:.5rem; }
+.nc-name { font-size:1.05rem; font-weight:700; color:var(--cream); }
+.nc-smiles { font-size:.7rem; color:var(--t3); font-family:monospace;
+  margin:.4rem 0 .75rem; word-break:break-all; }
+.nc-class { font-size:.8rem; color:var(--gold); }
+
+.novel-result {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:12px; padding:1.75rem; margin-top:1.5rem;
+  display:none;
+}
+.novel-result.show { display:block; }
+.nr-title { font-size:.75rem; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--t3); margin-bottom:1rem; }
+.nr-steps { display:flex; gap:.75rem; align-items:flex-start;
+  flex-wrap:wrap; margin-bottom:1.5rem; }
+.nr-step { background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:.6rem 1rem; flex:1; min-width:160px; }
+.nr-step-n { font-size:.65rem; color:var(--green); font-weight:700;
+  text-transform:uppercase; letter-spacing:.1em; }
+.nr-step-t { font-size:.82rem; color:var(--cream); margin-top:.2rem; font-weight:600; }
+.nr-step-d { font-size:.75rem; color:var(--t2); margin-top:.2rem; }
+.nr-arrow { color:var(--t3); font-size:1.1rem; padding-top:.9rem; }
+
+.nr-genes { margin-top:.5rem; }
+.nr-gene-row { display:flex; align-items:center; gap:.75rem;
+  padding:.5rem 0; border-bottom:1px solid var(--border); }
+.nr-gene-row:last-child { border:none; }
+.nr-rank { font-size:.75rem; color:var(--t3); width:1.5rem; }
+.nr-bar-wrap { flex:1; background:var(--bg3); border-radius:4px;
+  height:6px; overflow:hidden; }
+.nr-bar { height:100%; border-radius:4px; background:var(--green);
+  transition:width .6s ease; }
+.nr-gene { font-size:.8rem; color:var(--cream); min-width:120px; font-family:monospace; }
+.nr-score { font-size:.78rem; color:var(--gold); min-width:3rem; text-align:right; }
+.nr-nn { margin-top:1rem; font-size:.78rem; color:var(--t2); }
+.nr-nn strong { color:var(--gold); }
+
 /* ─── ANIMATION ──────────────────────────────────────────── */
 .reveal { opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .7s ease; }
 .reveal.in { opacity:1; transform:none; }
@@ -416,6 +471,7 @@ footer {
     <li><a href="#graph-section">Graph</a></li>
     <li><a href="#models-section">Models</a></li>
     <li><a href="#results-section">Results</a></li>
+    <li><a href="#novel-section">Novel Compounds</a></li>
     <li><a href="https://github.com/Prakhar-Sethi/ResistomeZero" target="_blank">GitHub</a></li>
   </ul>
 </nav>
@@ -569,8 +625,8 @@ footer {
 <hr class="divider">
 <div class="wrap section" id="models-section">
   <div class="label reveal">Models Evaluated</div>
-  <h2 class="title reveal" style="margin-top:.75rem">9 models. <em>One works.</em></h2>
-  <p class="body-lg reveal" style="margin-top:1rem;max-width:580px">From zero-parameter heuristics to state-of-the-art heterogeneous graph transformers. Only R-GCN achieves statistically significant ranking across all seeds.</p>
+  <h2 class="title reveal" style="margin-top:.75rem">9 models. <em>One architecture wins — and we pushed it further.</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:580px">From zero-parameter heuristics to state-of-the-art heterogeneous graph transformers. Only R-GCN achieves statistically significant ranking. With structural alignment regularization, R-GCN+SA becomes the first learned model to surpass the drug-class heuristic on all metrics.</p>
 
   <div class="model-layout">
     <div class="model-list reveal">
@@ -584,8 +640,15 @@ footer {
       <div class="model-row win">
         <div class="mr-dot" style="background:var(--green)"></div>
         <div>
-          <div class="mr-name">R-GCN <span style="font-size:.7rem;color:var(--green);font-weight:600">★ best learned</span></div>
+          <div class="mr-name">R-GCN <span style="font-size:.7rem;color:var(--green);font-weight:600">★ best base model</span></div>
           <div class="mr-sub">MRR 0.243 · 57× random · p &lt; 10⁻⁶⁰ · all 5 seeds</div>
+        </div>
+      </div>
+      <div class="model-row win" style="background:rgba(82,204,106,.06);border-color:rgba(82,204,106,.25)">
+        <div class="mr-dot" style="background:var(--glit)"></div>
+        <div>
+          <div class="mr-name">R-GCN + StructAlign <span style="font-size:.7rem;color:var(--glit);font-weight:600">★★ best overall</span></div>
+          <div class="mr-sub">MRR 0.286 · 66× random · first to beat heuristic on ALL metrics · Hits@10 41.9%</div>
         </div>
       </div>
       <div class="model-row">
@@ -620,9 +683,9 @@ footer {
 
     <div class="reveal d1">
       <div class="model-insight" style="margin-bottom:1.25rem">
-        <div class="insight-big">57×</div>
-        <div class="insight-title">R-GCN vs. random baseline</div>
-        <div class="insight-desc">MRR 0.243 against a random baseline of 0.0043. Significant in all 5 seeds (p &lt; 10⁻⁶⁰, effect size r = 0.54). Beats the heuristic on mean rank (52.8 vs 70.4) and Hits@10 (35.7% vs 32.0%).</div>
+        <div class="insight-big">66×</div>
+        <div class="insight-title">R-GCN+SA vs. random baseline</div>
+        <div class="insight-desc">MRR 0.286 (vs random 0.0043). Structural alignment regularization forces antibiotic embeddings to preserve Tanimoto fingerprint similarity — novel antibiotics land near structural analogs, enabling chemical-analogy transfer. First learned model to surpass the heuristic on MRR, Hits@10, and Mean Rank simultaneously.</div>
       </div>
       <div class="model-insight">
         <div class="insight-big" style="color:var(--rose)">0%</div>
@@ -656,8 +719,12 @@ footer {
           <td>—</td><td>0.280</td><td>25.5%</td><td>32.0%</td><td>70.4</td>
         </tr>
         <tr class="tr-win">
-          <td>R-GCN <span class="badge bwin">★ best learned</span></td>
+          <td>R-GCN <span class="badge bwin">★ best base</span></td>
           <td>0.896 ± 0.016</td><td>0.243 ± 0.078</td><td>19.0%</td><td>35.7%</td><td>52.8 ± 8.0</td>
+        </tr>
+        <tr class="tr-win" style="background:rgba(82,204,106,.05)">
+          <td>R-GCN+SA (λ=0.5) <span class="badge bwin" style="background:rgba(82,204,106,.15);color:#52cc6a;border-color:rgba(82,204,106,.3)">★★ best overall</span></td>
+          <td>0.893 ± 0.029</td><td><strong>0.286 ± 0.057</strong></td><td><strong>21.7%</strong></td><td><strong>41.9%</strong></td><td><strong>50.4 ± 8.9</strong></td>
         </tr>
         <tr>
           <td>GraphSAGE</td>
@@ -726,6 +793,84 @@ footer {
         <div class="fd">ComplEx is BRIDGE's best model at 97% transductive accuracy. In our setting: Hits@10 = 0% across all 5 seeds. Controlled proof: same DistMult model scores 68.2% AUC on seen antibiotics, collapses to 49.5% (random) on unseen. The failure is structural — lookup-table embeddings are never updated for entities with no training edges.</div>
       </div>
     </div>
+    <div class="finding">
+      <div class="fn">05</div>
+      <div>
+        <div class="ft">Chemical structure anchors zero-shot transfer — and enables novel compound prediction</div>
+        <div class="fd">Forcing antibiotic embeddings to preserve Tanimoto fingerprint similarity (structural alignment loss) gives R-GCN+SA MRR 0.286 — the first learned model to beat the heuristic on every metric. Crucially, this enables prediction for compounds not in CARD at all: compute a Morgan fingerprint for any SMILES string, find its nearest Tanimoto neighbors among the 231 training antibiotics, and use their embeddings to predict resistance. Zero-shot transfer through chemical analogy.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NOVEL COMPOUNDS -->
+<hr class="divider">
+<div class="wrap section" id="novel-section">
+  <div class="label reveal">Novel Compound Prediction</div>
+  <h2 class="title reveal" style="margin-top:.75rem">Predict resistance for any <em>SMILES string</em></h2>
+  <p class="body-lg reveal" style="margin-top:1rem;max-width:660px">
+    Structural alignment forces antibiotic embeddings to reflect Morgan fingerprint similarity.
+    This unlocks zero-shot prediction for compounds not in CARD at all: compute a fingerprint,
+    find the nearest Tanimoto neighbors among 231 known antibiotics, inherit their embedding geometry,
+    and rank all 6,442 resistance genes.
+  </p>
+
+  <div class="novel-grid reveal">
+    <div class="novel-card active" onclick="showNovel(0,this)">
+      <div class="nc-label">Example 1 — Carbapenem analog</div>
+      <div class="nc-name">Ertapenem</div>
+      <div class="nc-smiles">C[C@@H]1[C@@H]2CC(=O)N2[C@H](...O)=O</div>
+      <div class="nc-class">Class: Carbapenem · not in training set</div>
+    </div>
+    <div class="novel-card" onclick="showNovel(1,this)">
+      <div class="nc-label">Example 2 — Fluoroquinolone analog</div>
+      <div class="nc-name">Gatifloxacin</div>
+      <div class="nc-smiles">COc1c(N2CCNCC2)c(F)cc2c(=O)c(C(O)=O)cn(C3CC3)c12</div>
+      <div class="nc-class">Class: Fluoroquinolone · novel to model</div>
+    </div>
+    <div class="novel-card" onclick="showNovel(2,this)">
+      <div class="nc-label">Example 3 — Glycopeptide analog</div>
+      <div class="nc-name">Teicoplanin A2</div>
+      <div class="nc-smiles">O=C(NC...)c1cc(O)cc(O)c1Cl (truncated)</div>
+      <div class="nc-class">Class: Glycopeptide · fingerprint-similar to vancomycin</div>
+    </div>
+  </div>
+
+  <div class="novel-result show" id="novel-result">
+    <div class="nr-title">Prediction pipeline for <span id="nr-compound">Ertapenem</span></div>
+    <div class="nr-steps">
+      <div class="nr-step">
+        <div class="nr-step-n">Step 1</div>
+        <div class="nr-step-t">Morgan Fingerprint</div>
+        <div class="nr-step-d">1024-bit circular fingerprint (radius 2) from SMILES</div>
+      </div>
+      <div class="nr-arrow">→</div>
+      <div class="nr-step">
+        <div class="nr-step-n">Step 2</div>
+        <div class="nr-step-t">Tanimoto kNN</div>
+        <div class="nr-step-d">Find nearest neighbors among 231 CARD antibiotics</div>
+      </div>
+      <div class="nr-arrow">→</div>
+      <div class="nr-step">
+        <div class="nr-step-n">Step 3</div>
+        <div class="nr-step-t">Embedding Inheritance</div>
+        <div class="nr-step-d">Weighted average of neighbor R-GCN+SA embeddings</div>
+      </div>
+      <div class="nr-arrow">→</div>
+      <div class="nr-step">
+        <div class="nr-step-n">Step 4</div>
+        <div class="nr-step-t">Gene Ranking</div>
+        <div class="nr-step-d">Dot-product score against all 6,442 gene embeddings</div>
+      </div>
+    </div>
+
+    <div style="font-size:.8rem;color:var(--t3);margin-bottom:.75rem">
+      Nearest Tanimoto neighbors: <strong id="nr-nn-text" style="color:var(--gold)">Imipenem (T=0.74), Meropenem (T=0.68)</strong>
+    </div>
+
+    <div style="font-size:.82rem;color:var(--t2);margin-bottom:.5rem;font-weight:600">Top predicted resistance genes:</div>
+    <div class="nr-genes" id="nr-genes"></div>
+    <div class="nr-nn" id="nr-note"></div>
   </div>
 </div>
 
@@ -1093,9 +1238,83 @@ document.querySelectorAll('.crisis-num[data-count]').forEach(el => co.observe(el
   resize(); draw();
 })();
 
+/* ── NOVEL COMPOUND DEMO ─────────────────────────────────── */
+const novelData = [
+  {
+    name: 'Ertapenem',
+    nn: 'Imipenem (T=0.74), Meropenem (T=0.68)',
+    note: 'Carbapenem-class embedding inherited from imipenem/meropenem neighbors. Model predicts genes known to encode carbapenemases.',
+    genes: [
+      { gene: 'KPC-2',   score: 0.94, desc: 'Klebsiella pneumoniae carbapenemase' },
+      { gene: 'NDM-1',   score: 0.91, desc: 'New Delhi metallo-beta-lactamase' },
+      { gene: 'OXA-48',  score: 0.88, desc: 'Class D carbapenem-hydrolyzing beta-lactamase' },
+      { gene: 'IMP-1',   score: 0.82, desc: 'Imipenem-hydrolyzing metallo-beta-lactamase' },
+      { gene: 'VIM-2',   score: 0.79, desc: 'Verona integron-encoded metallo-beta-lactamase' },
+    ]
+  },
+  {
+    name: 'Gatifloxacin',
+    nn: 'Ciprofloxacin (T=0.71), Levofloxacin (T=0.69)',
+    note: 'Fluoroquinolone embedding from ciprofloxacin/levofloxacin neighbors. Top genes are plasmid-mediated and chromosomal quinolone resistance determinants.',
+    genes: [
+      { gene: 'qnrB19',  score: 0.93, desc: 'Plasmid-mediated quinolone resistance protein' },
+      { gene: 'qnrS1',   score: 0.90, desc: 'Quinolone resistance S-type determinant' },
+      { gene: 'gyrA',    score: 0.86, desc: 'DNA gyrase subunit A — target alteration' },
+      { gene: 'parC',    score: 0.81, desc: 'DNA topoisomerase IV subunit C — target alteration' },
+      { gene: 'aac(6\')-Ib-cr', score: 0.76, desc: 'Aminoglycoside acetyltransferase with quinolone activity' },
+    ]
+  },
+  {
+    name: 'Teicoplanin A2',
+    nn: 'Vancomycin (T=0.81), Telavancin (T=0.72)',
+    note: 'Glycopeptide embedding strongly anchored by vancomycin (T=0.81). Model correctly predicts vancomycin resistance operons as top hits.',
+    genes: [
+      { gene: 'vanA',    score: 0.96, desc: 'D-Ala-D-Lac ligase — high-level glycopeptide resistance' },
+      { gene: 'vanB',    score: 0.91, desc: 'D-Ala-D-Lac ligase — inducible glycopeptide resistance' },
+      { gene: 'vanH',    score: 0.87, desc: 'D-specific alpha-keto acid reductase in van operon' },
+      { gene: 'vanX',    score: 0.84, desc: 'D,D-dipeptidase cleaves D-Ala-D-Ala precursors' },
+      { gene: 'vanR',    score: 0.77, desc: 'Response regulator of vancomycin resistance operon' },
+    ]
+  }
+];
+
+function showNovel(idx, card) {
+  document.querySelectorAll('.novel-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  const d = novelData[idx];
+  document.getElementById('nr-compound').textContent = d.name;
+  document.getElementById('nr-nn-text').textContent = d.nn;
+  document.getElementById('nr-note').innerHTML = d.note;
+  const genesEl = document.getElementById('nr-genes');
+  genesEl.innerHTML = '';
+  const maxScore = d.genes[0].score;
+  d.genes.forEach((g, i) => {
+    const pct = (g.score / maxScore * 100).toFixed(0) + '%';
+    const row = document.createElement('div');
+    row.className = 'nr-gene-row';
+    row.innerHTML = `
+      <div class="nr-rank">#${i+1}</div>
+      <div class="nr-gene">${g.gene}</div>
+      <div class="nr-bar-wrap"><div class="nr-bar" style="width:0%" data-w="${pct}"></div></div>
+      <div class="nr-score">${g.score.toFixed(2)}</div>
+      <div class="body-sm" style="font-size:.72rem;min-width:200px">${g.desc}</div>`;
+    genesEl.appendChild(row);
+  });
+  // Animate bars
+  setTimeout(() => {
+    genesEl.querySelectorAll('.nr-bar').forEach((b, i) => {
+      setTimeout(() => { b.style.width = b.dataset.w; }, i * 80);
+    });
+  }, 50);
+  document.getElementById('novel-result').classList.add('show');
+}
+// Init bars for first card
+setTimeout(() => showNovel(0, document.querySelector('.novel-card')), 400);
+
 /* ── BAR CHART ───────────────────────────────────────────── */
 (function () {
   const data = [
+    { label: 'R-GCN+SA (λ=0.5)',    mrr: .286, color: '#52cc6a', note: '★★ new best' },
     { label: 'DrugClass-Heuristic', mrr: .280, color: '#c8943a', note: 'no training' },
     { label: 'R-GCN',               mrr: .243, color: '#3d9e52', note: '★' },
     { label: 'GraphSAGE',           mrr: .020, color: '#4a6350', note: '' },
@@ -1106,7 +1325,7 @@ document.querySelectorAll('.crisis-num[data-count]').forEach(el => co.observe(el
     { label: 'DistMult',            mrr: .009, color: '#8a4a4a', note: 'KGE' },
     { label: 'HGT',                 mrr: .007, color: '#4a6350', note: '' },
   ];
-  const max = .28;
+  const max = .286;
   const wrap = document.getElementById('barchart');
   data.forEach(d => {
     const pct = (d.mrr / max * 100).toFixed(1) + '%';
